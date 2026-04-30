@@ -67,14 +67,12 @@
     <div class="content">
         <!-- 首页视图 -->
         <div v-if="currentView === 'home'">
-            <!-- 热度前三职位网格：显示职位分类名称 -->
             <div class="grid-menu">
                 <div v-for="(hot, idx) in top3HotJobs" :key="idx" class="grid-item" @click="viewDetail(hot)">
                     <i class="fas fa-trophy"></i>
                     <span>{{ hot.tag.length > 8 ? hot.tag.slice(0,6)+'…' : hot.tag }}</span>
                 </div>
             </div>
-
             <div class="flex"><h4>🔥 热门推荐职位</h4></div>
             <div v-for="job in hotJobs" :key="job.id" class="job-card" @click="viewDetail(job)">
                 <div class="flex">
@@ -283,7 +281,6 @@
                             <i :class="sections.jobManage ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
                         </div>
                         <div class="admin-section-content" :class="{ open: sections.jobManage }">
-                            <!-- 发布职位表单 -->
                             <div class="flex"><input placeholder="职位名称" v-model="newJob.title"><input placeholder="公司" v-model="newJob.company"></div>
                             <div class="flex"><input placeholder="地点" v-model="newJob.location"><input placeholder="薪资" v-model="newJob.salary"></div>
                             <select v-model="newJob.tag">
@@ -293,9 +290,7 @@
                             <textarea v-model="newJob.description" rows="3" placeholder="项目介绍（详细描述职位内容）"></textarea>
                             <input type="text" v-model="newJob.duration" placeholder="出境所需时长（例如：3个月 / 15天）">
                             <button class="btn" style="width:100%; margin-bottom:12px;" @click="publishJob">发布职位</button>
-                            <!-- 搜索职位 -->
                             <input type="text" v-model="jobSearchKeyword" placeholder="搜索职位标题或公司" style="margin-bottom:12px;">
-                            <!-- 职位列表 -->
                             <div v-for="job in filteredJobsForAdmin" :key="job.id" class="card" style="margin-bottom:12px;">
                                 <div class="flex"><strong>{{ job.title }}</strong> (热度:{{ job.heat || 0 }}) <span v-if="job.sticky" class="tag sticky-badge">置顶</span></div>
                                 <div>公司: {{ job.company }} | 分类: {{ job.tag || '未分类' }}</div>
@@ -342,8 +337,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- 6. 项目查看修改删除热度置顶项目搜索（与职位管理合并，已在第3项中包含） -->
                 </div>
 
                 <!-- 普通管理员只能看到职位管理（简化版） -->
@@ -405,7 +398,7 @@
     const JSONBIN_BIN_ID = '69f37038aaba88219757286c';
     const JSONBIN_API_KEY = '$2a$10$P4yMa6EFV5rBU98ajof0j.rvYd/yUZpuyrP/m3Na5DYzDf87HaFEa';
     const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
-    const SYNC_INTERVAL_MS = 60 * 1000;
+    const SYNC_INTERVAL_MS = 60 * 1000; // 兜底同步间隔
 
     // ======================== localStorage 键名 ========================
     const STORAGE_USERS = 'hr_users';
@@ -450,8 +443,8 @@
         setTimeout(() => div.remove(), duration);
     }
 
-    // ---------- 云端同步函数 ----------
-    async function overwriteFromCloud() {
+    // ---------- 核心同步函数：先拉取最新，再推送本地（可选）----------
+    async function pullFromCloud() {
         try {
             const res = await fetch(JSONBIN_URL, { headers: { 'X-Master-Key': JSONBIN_API_KEY } });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -463,12 +456,12 @@
                 localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(remote.applications || []));
                 localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(remote.consultMsgs || []));
                 localStorage.setItem(STORAGE_ADMIN, JSON.stringify(remote.adminAccounts || []));
-                console.log('[Cloud] 覆盖本地成功');
+                console.log('[Cloud] 拉取最新数据成功');
                 if (window.vm && window.vm.currentPhone) {
                     window.vm.loadResumeFromStorage();
                     window.vm.$forceUpdate();
                 }
-                showToast('已同步最新数据', 1500);
+                showToast('已加载最新数据', 1500);
             }
         } catch (err) {
             console.error('[Cloud] 拉取失败', err);
@@ -491,17 +484,19 @@
                 body: JSON.stringify(allData)
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            console.log('[Cloud] 上传成功');
+            console.log('[Cloud] 推送成功');
         } catch (err) {
-            console.error('[Cloud] 上传失败', err);
-            showToast('上传云端失败，请稍后重试', 2000);
+            console.error('[Cloud] 推送失败', err);
+            showToast('保存失败，请稍后重试', 2000);
         }
     }
 
-    async function fullSync() {
-        showToast('同步中...', 1000);
-        await pushToCloud();
-        await overwriteFromCloud();
+    // 每次数据变更操作：先拉取最新 -> 修改本地 -> 推送云端
+    async function syncAndModify(modifyFn) {
+        await pullFromCloud();        // 1. 获取最新数据
+        await modifyFn();             // 2. 执行本地修改（修改localStorage）
+        await pushToCloud();          // 3. 推送更新到云端
+        if (window.vm) window.vm.$forceUpdate(); // 刷新界面
     }
 
     // ---------- 清除所有业务数据（保留登录状态）----------
@@ -511,11 +506,12 @@
         console.log('[Cache] 已清除所有业务缓存');
     }
 
+    // 初始化：强制拉取云端最新数据，如果云端为空则写入默认数据
     async function initData() {
         const currentPhone = localStorage.getItem(STORAGE_CUR_USER);
         clearAllBusinessData();
         if (currentPhone) localStorage.setItem(STORAGE_CUR_USER, currentPhone);
-        await overwriteFromCloud();
+        await pullFromCloud();
         if (!localStorage.getItem(STORAGE_JOBS) || JSON.parse(localStorage.getItem(STORAGE_JOBS)).length === 0) {
             let defaultJobs = [
                 { id:1, title:'海外工程项目经理', company:'中国交通建设集团', location:'沙特/印尼', salary:'65-85w/年', tag:'出国外派', creator:'syadmin', heat:12, sticky:true, description:'负责海外大型基建项目管理，要求5年以上经验，英语流利，外派期间提供住宿及高额补贴。', duration:'6个月', createdAt: new Date().toISOString() },
@@ -538,7 +534,7 @@
     let syncInterval = null;
     function startAutoSync() {
         if (syncInterval) clearInterval(syncInterval);
-        syncInterval = setInterval(() => overwriteFromCloud(), SYNC_INTERVAL_MS);
+        syncInterval = setInterval(() => pullFromCloud(), SYNC_INTERVAL_MS);
     }
 
     // ---------- Vue 实例 ----------
@@ -574,7 +570,6 @@
             replyConsult: {},
             consultModal: { visible: false, job: null, content: '' },
             detailJob: null,
-            // 折叠面板状态
             sections: {
                 adminManage: false,
                 hotRank: false,
@@ -633,9 +628,7 @@
                 if(this.adminRole !== 'super') return [];
                 return JSON.parse(localStorage.getItem(STORAGE_USERS) || '[]');
             },
-            adminList() {
-                return JSON.parse(localStorage.getItem(STORAGE_ADMIN));
-            },
+            adminList() { return JSON.parse(localStorage.getItem(STORAGE_ADMIN)); },
             myOwnJobs() {
                 if(!this.adminLogged || this.adminRole !== 'normal') return [];
                 return this.allJobs.filter(j => j.creator === this.adminLoginUser);
@@ -685,15 +678,16 @@
                 if(u && u.resumeFile) { this.resumeFileBase64 = u.resumeFile; this.resumeFileName = u.resumeFileName; }
             },
             async saveResume() {
-                if(!this.currentPhone) return;
-                let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
-                let idx = users.findIndex(x=>x.phone === this.currentPhone);
-                if(idx !== -1){
-                    users[idx].resumeData = JSON.parse(JSON.stringify(this.resume));
-                    localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
-                    showToast('简历已保存');
-                    await pushToCloud();
-                }
+                await syncAndModify(async () => {
+                    if(!this.currentPhone) return;
+                    let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
+                    let idx = users.findIndex(x=>x.phone === this.currentPhone);
+                    if(idx !== -1){
+                        users[idx].resumeData = JSON.parse(JSON.stringify(this.resume));
+                        localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
+                        showToast('简历已保存');
+                    }
+                });
             },
             uploadAttach(){
                 let file = document.querySelector('#fileUpload').files[0];
@@ -703,15 +697,16 @@
                 reader.onload = async (e) => {
                     this.resumeFileBase64 = e.target.result;
                     this.resumeFileName = file.name;
-                    let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
-                    let idx = users.findIndex(x=>x.phone === this.currentPhone);
-                    if(idx !== -1){
-                        users[idx].resumeFile = this.resumeFileBase64;
-                        users[idx].resumeFileName = file.name;
-                        localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
-                        showToast('附件上传成功');
-                        await pushToCloud();
-                    }
+                    await syncAndModify(async () => {
+                        let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
+                        let idx = users.findIndex(x=>x.phone === this.currentPhone);
+                        if(idx !== -1){
+                            users[idx].resumeFile = this.resumeFileBase64;
+                            users[idx].resumeFileName = file.name;
+                            localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
+                            showToast('附件上传成功');
+                        }
+                    });
                 };
                 reader.readAsDataURL(file);
             },
@@ -729,24 +724,25 @@
                 if(!this.regPassword || this.regPassword.length < 4) return showToast('密码长度至少4位');
                 if(this.regPassword !== this.regConfirmPwd) return showToast('两次密码不一致');
                 if(!/^\d{6}$/.test(this.regSecurityCode)) return showToast('安全码必须为6位数字');
-                let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
-                if(users.find(u => u.phone === this.regPhone)) return showToast('手机号已注册');
-                users.push({
-                    phone: this.regPhone, password: btoa(this.regPassword), securityCode: this.regSecurityCode,
-                    resumeData: null, resumeFile: null, resumeFileName: '', createTime: new Date().toISOString(), updatedAt: new Date().toISOString()
+                await syncAndModify(async () => {
+                    let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
+                    if(users.find(u => u.phone === this.regPhone)) { showToast('手机号已注册'); return; }
+                    users.push({
+                        phone: this.regPhone, password: btoa(this.regPassword), securityCode: this.regSecurityCode,
+                        resumeData: null, resumeFile: null, resumeFileName: '', createTime: new Date().toISOString(), updatedAt: new Date().toISOString()
+                    });
+                    localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
+                    showToast('注册成功，请登录');
+                    this.showRegister = false;
+                    this.loginPhone = this.regPhone;
+                    this.regPhone = this.regPassword = this.regConfirmPwd = this.regSecurityCode = '';
                 });
-                localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
-                showToast('注册成功，请登录');
-                this.showRegister = false;
-                this.loginPhone = this.regPhone;
-                this.regPhone = this.regPassword = this.regConfirmPwd = this.regSecurityCode = '';
-                await fullSync();
             },
             async doLogin(){
                 const phoneRegex = /^1[3-9]\d{9}$/;
                 if(!phoneRegex.test(this.loginPhone)) return showToast('请输入正确的手机号');
                 if(!this.loginPassword) return showToast('请输入密码');
-                await overwriteFromCloud();
+                await pullFromCloud(); // 登录前先获取最新数据
                 let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
                 let user = users.find(u => u.phone === this.loginPhone && atob(u.password) === this.loginPassword);
                 if(user){
@@ -763,22 +759,23 @@
             },
             async doChangePwd(){
                 if(!this.currentPhone) return;
-                let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
-                let idx = users.findIndex(u => u.phone === this.currentPhone);
-                if(idx === -1) return showToast('用户不存在');
-                let user = users[idx];
-                if(atob(user.password) !== this.changePwd.oldPwd) return showToast('原密码错误');
-                if(this.changePwd.newPwd !== this.changePwd.confirmPwd) return showToast('新密码与确认密码不一致');
-                if(this.changePwd.newPwd.length < 4) return showToast('新密码长度至少4位');
-                if(user.securityCode !== this.changePwd.securityCode) return showToast('安全码错误');
-                users[idx].password = btoa(this.changePwd.newPwd);
-                users[idx].updatedAt = new Date().toISOString();
-                localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
-                showToast('密码修改成功，请重新登录');
-                this.logout();
-                this.showChangePwd = false;
-                this.changePwd = { oldPwd: '', newPwd: '', confirmPwd: '', securityCode: '' };
-                await pushToCloud();
+                await syncAndModify(async () => {
+                    let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
+                    let idx = users.findIndex(u => u.phone === this.currentPhone);
+                    if(idx === -1) { showToast('用户不存在'); return; }
+                    let user = users[idx];
+                    if(atob(user.password) !== this.changePwd.oldPwd) { showToast('原密码错误'); return; }
+                    if(this.changePwd.newPwd !== this.changePwd.confirmPwd) { showToast('新密码与确认密码不一致'); return; }
+                    if(this.changePwd.newPwd.length < 4) { showToast('新密码长度至少4位'); return; }
+                    if(user.securityCode !== this.changePwd.securityCode) { showToast('安全码错误'); return; }
+                    users[idx].password = btoa(this.changePwd.newPwd);
+                    users[idx].updatedAt = new Date().toISOString();
+                    localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
+                    showToast('密码修改成功，请重新登录');
+                    this.logout();
+                    this.showChangePwd = false;
+                    this.changePwd = { oldPwd: '', newPwd: '', confirmPwd: '', securityCode: '' };
+                });
             },
             logout(){
                 localStorage.removeItem(STORAGE_CUR_USER);
@@ -789,29 +786,31 @@
             async applyJob(job){
                 if(!this.isLogin){ showToast('请先登录'); this.currentView='profile'; return; }
                 if(!this.resume.name || !this.resume.phone){ showToast('请先完善姓名和手机号'); this.currentView='profile'; return; }
-                let apps = JSON.parse(localStorage.getItem(STORAGE_APPLICATIONS));
-                if(apps.some(a => a.phone === this.currentPhone && a.jobId === job.id)) return showToast('已投递过该职位');
-                apps.push({ id:Date.now(), phone:this.currentPhone, jobId:job.id, jobTitle:job.title, company:job.company, time:new Date().toLocaleString(), status:'已投递', updatedAt: new Date().toISOString() });
-                localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(apps));
-                let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS));
-                let targetJob = jobs.find(j => j.id === job.id);
-                if(targetJob){ targetJob.heat = (targetJob.heat || 0) + 1; targetJob.updatedAt = new Date().toISOString(); localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs)); }
-                showToast(`成功投递 ${job.title}`);
-                await pushToCloud();
+                await syncAndModify(async () => {
+                    let apps = JSON.parse(localStorage.getItem(STORAGE_APPLICATIONS));
+                    if(apps.some(a => a.phone === this.currentPhone && a.jobId === job.id)) { showToast('已投递过该职位'); return; }
+                    apps.push({ id:Date.now(), phone:this.currentPhone, jobId:job.id, jobTitle:job.title, company:job.company, time:new Date().toLocaleString(), status:'已投递', updatedAt: new Date().toISOString() });
+                    localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(apps));
+                    let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS));
+                    let targetJob = jobs.find(j => j.id === job.id);
+                    if(targetJob){ targetJob.heat = (targetJob.heat || 0) + 1; targetJob.updatedAt = new Date().toISOString(); localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs)); }
+                    showToast(`成功投递 ${job.title}`);
+                });
             },
             async updateJobHeatSticky(job){
-                let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS));
-                let idx = jobs.findIndex(j => j.id === job.id);
-                if(idx !== -1){
-                    jobs[idx].heat = job.heat;
-                    jobs[idx].sticky = job.sticky;
-                    jobs[idx].description = job.description;
-                    jobs[idx].duration = job.duration;
-                    jobs[idx].updatedAt = new Date().toISOString();
-                    localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
-                    showToast('已更新');
-                    await pushToCloud();
-                }
+                await syncAndModify(async () => {
+                    let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS));
+                    let idx = jobs.findIndex(j => j.id === job.id);
+                    if(idx !== -1){
+                        jobs[idx].heat = job.heat;
+                        jobs[idx].sticky = job.sticky;
+                        jobs[idx].description = job.description;
+                        jobs[idx].duration = job.duration;
+                        jobs[idx].updatedAt = new Date().toISOString();
+                        localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
+                        showToast('已更新');
+                    }
+                });
             },
             openConsult(job){
                 if(!this.isLogin){ showToast('请先登录'); this.currentView='profile'; return; }
@@ -820,17 +819,18 @@
             },
             async submitConsult(){
                 if(!this.consultModal.content.trim()) return showToast('请输入咨询内容');
-                let msg = {
-                    id: Date.now(), userPhone: this.currentPhone, userName: this.resume.name || this.currentPhone,
-                    jobId: this.consultModal.job.id, jobTitle: this.consultModal.job.title, jobCompany: this.consultModal.job.company,
-                    content: this.consultModal.content, time: new Date().toLocaleString(), reply: null, updatedAt: new Date().toISOString()
-                };
-                let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS));
-                msgs.push(msg);
-                localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs));
-                showToast('咨询已发送');
-                this.consultModal.visible = false;
-                await pushToCloud();
+                await syncAndModify(async () => {
+                    let msg = {
+                        id: Date.now(), userPhone: this.currentPhone, userName: this.resume.name || this.currentPhone,
+                        jobId: this.consultModal.job.id, jobTitle: this.consultModal.job.title, jobCompany: this.consultModal.job.company,
+                        content: this.consultModal.content, time: new Date().toLocaleString(), reply: null, updatedAt: new Date().toISOString()
+                    };
+                    let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS));
+                    msgs.push(msg);
+                    localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs));
+                    showToast('咨询已发送');
+                    this.consultModal.visible = false;
+                });
             },
             adminLogin(){
                 let admins = JSON.parse(localStorage.getItem(STORAGE_ADMIN));
@@ -853,87 +853,101 @@
                 showToast('已退出后台');
             },
             async addAdmin(){
-                if(!this.newAdminName || !this.newAdminPwd) return showToast('请输入用户名密码');
-                let admins = JSON.parse(localStorage.getItem(STORAGE_ADMIN));
-                if(admins.find(a => a.username === this.newAdminName)) return showToast('用户名已存在');
-                admins.push({ username: this.newAdminName, password: btoa(this.newAdminPwd), role: 'normal', updatedAt: new Date().toISOString() });
-                localStorage.setItem(STORAGE_ADMIN, JSON.stringify(admins));
-                this.newAdminName = this.newAdminPwd = '';
-                showToast('添加成功');
-                await pushToCloud();
+                await syncAndModify(async () => {
+                    if(!this.newAdminName || !this.newAdminPwd) { showToast('请输入用户名密码'); return; }
+                    let admins = JSON.parse(localStorage.getItem(STORAGE_ADMIN));
+                    if(admins.find(a => a.username === this.newAdminName)) { showToast('用户名已存在'); return; }
+                    admins.push({ username: this.newAdminName, password: btoa(this.newAdminPwd), role: 'normal', updatedAt: new Date().toISOString() });
+                    localStorage.setItem(STORAGE_ADMIN, JSON.stringify(admins));
+                    this.newAdminName = this.newAdminPwd = '';
+                    showToast('添加成功');
+                });
             },
             async deleteAdmin(username){
-                let admins = JSON.parse(localStorage.getItem(STORAGE_ADMIN));
-                let newList = admins.filter(a => a.username !== username);
-                localStorage.setItem(STORAGE_ADMIN, JSON.stringify(newList));
-                showToast('已删除管理员');
-                await pushToCloud();
+                await syncAndModify(async () => {
+                    let admins = JSON.parse(localStorage.getItem(STORAGE_ADMIN));
+                    let newList = admins.filter(a => a.username !== username);
+                    localStorage.setItem(STORAGE_ADMIN, JSON.stringify(newList));
+                    showToast('已删除管理员');
+                });
             },
             async publishJob(){
-                if(!this.newJob.title || !this.newJob.company) return showToast('请填写完整');
-                let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS));
-                let creator = this.adminRole === 'super' ? 'syadmin' : this.adminLoginUser;
-                let newId = Date.now();
-                let newJobObj = {
-                    id: newId,
-                    ...this.newJob,
-                    creator,
-                    heat: 0,
-                    sticky: false,
-                    description: this.newJob.description || '',
-                    duration: this.newJob.duration || '',
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
-                };
-                jobs.push(newJobObj);
-                localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
-                showToast('职位发布成功');
-                this.newJob = { title:'', company:'', location:'', salary:'', tag:'出国外派', description:'', duration:'' };
-                await pushToCloud();
+                await syncAndModify(async () => {
+                    if(!this.newJob.title || !this.newJob.company) { showToast('请填写完整'); return; }
+                    let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS));
+                    let creator = this.adminRole === 'super' ? 'syadmin' : this.adminLoginUser;
+                    let newId = Date.now();
+                    let newJobObj = {
+                        id: newId,
+                        ...this.newJob,
+                        creator,
+                        heat: 0,
+                        sticky: false,
+                        description: this.newJob.description || '',
+                        duration: this.newJob.duration || '',
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    };
+                    jobs.push(newJobObj);
+                    localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
+                    showToast('职位发布成功');
+                    this.newJob = { title:'', company:'', location:'', salary:'', tag:'出国外派', description:'', duration:'' };
+                });
             },
             async deleteJob(jobId){
-                let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS));
-                let job = jobs.find(j => j.id === jobId);
-                if(this.adminRole === 'normal' && job.creator !== this.adminLoginUser) return showToast('无权限删除他人职位');
-                jobs = jobs.filter(j => j.id !== jobId);
-                localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
-                showToast('职位已删除');
-                await pushToCloud();
+                await syncAndModify(async () => {
+                    let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS));
+                    let job = jobs.find(j => j.id === jobId);
+                    if(this.adminRole === 'normal' && job.creator !== this.adminLoginUser) { showToast('无权限删除他人职位'); return; }
+                    jobs = jobs.filter(j => j.id !== jobId);
+                    localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
+                    showToast('职位已删除');
+                });
             },
             async deleteUser(phone){
                 if(this.adminRole !== 'super') return;
-                let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
-                users = users.filter(u => u.phone !== phone);
-                localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
-                let apps = JSON.parse(localStorage.getItem(STORAGE_APPLICATIONS));
-                apps = apps.filter(a => a.phone !== phone);
-                localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(apps));
-                let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS));
-                msgs = msgs.filter(m => m.userPhone !== phone);
-                localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs));
-                showToast('已删除求职者账号及相关数据');
-                await pushToCloud();
+                await syncAndModify(async () => {
+                    let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
+                    users = users.filter(u => u.phone !== phone);
+                    localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
+                    let apps = JSON.parse(localStorage.getItem(STORAGE_APPLICATIONS));
+                    apps = apps.filter(a => a.phone !== phone);
+                    localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(apps));
+                    let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS));
+                    msgs = msgs.filter(m => m.userPhone !== phone);
+                    localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs));
+                    showToast('已删除求职者账号及相关数据');
+                });
             },
             async replyConsultMsg(msgId){
                 let replyText = this.replyConsult[msgId];
                 if(!replyText) return;
-                let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS));
-                let idx = msgs.findIndex(m => m.id == msgId);
-                if(idx !== -1){ msgs[idx].reply = replyText; msgs[idx].updatedAt = new Date().toISOString(); localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs)); showToast('回复已保存'); delete this.replyConsult[msgId]; await pushToCloud(); }
+                await syncAndModify(async () => {
+                    let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS));
+                    let idx = msgs.findIndex(m => m.id == msgId);
+                    if(idx !== -1){
+                        msgs[idx].reply = replyText;
+                        msgs[idx].updatedAt = new Date().toISOString();
+                        localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs));
+                        showToast('回复已保存');
+                        delete this.replyConsult[msgId];
+                    }
+                });
             },
             async deleteConsultMsg(msgId){
-                let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS));
-                msgs = msgs.filter(m => m.id !== msgId);
-                localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs));
-                showToast('已删除咨询消息');
-                await pushToCloud();
+                await syncAndModify(async () => {
+                    let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS));
+                    msgs = msgs.filter(m => m.id !== msgId);
+                    localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs));
+                    showToast('已删除咨询消息');
+                });
             },
             quickTip(msg){ showToast(msg); },
-            manualSyncNow() { fullSync(); }
+            manualSyncNow() { pullFromCloud(); }
         }
     });
     window.vm = vm;
-    window.fullSync = fullSync;
+    window.fullSync = pullFromCloud;
 </script>
 </body>
 </html>
