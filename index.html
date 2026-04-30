@@ -291,11 +291,14 @@
 
 <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
 <script>
-    // ======================== 后端同步配置 ========================
-    const API_BASE_URL = 'https://Cansue12355.github.io/hr-platform/index.html';  // 请填写您的后端地址，例如 'http://your-server:3000'。留空则禁用同步功能
-    const SYNC_INTERVAL_MS = 2 * 60 * 1000;
+    // ======================== JSONBin 云存储配置 ========================
+    // 👇 请替换为您的实际 Bin ID 和 API Key（在 jsonbin.io 注册后获取）
+    const JSONBIN_BIN_ID = '69f37038aaba88219757286c';      // 例如 '65f1a2b3c4d5e6f7g8h9i0'
+    const JSONBIN_API_KEY = '$2a$10$P4yMa6EFV5rBU98ajof0j.rvYd/yUZpuyrP/m3Na5DYzDf87HaFEa';    // 例如 '$2a$10$xxxx...'
+    const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
+    const SYNC_INTERVAL_MS = 30 * 1000; // 30秒自动拉取
 
-    // ======================== localStorage keys ========================
+    // ======================== localStorage 键名 ========================
     const STORAGE_USERS = 'hr_users';
     const STORAGE_CUR_USER = 'hr_current_user';
     const STORAGE_JOBS = 'hr_jobs';
@@ -303,47 +306,72 @@
     const STORAGE_CONSULT_MSGS = 'hr_consult_msgs';
     const STORAGE_ADMIN = 'hr_admin_accounts';
 
-    // ---------- 辅助函数 ----------
-    function addTimestampsToAllData() {
-        const stores = [STORAGE_USERS, STORAGE_JOBS, STORAGE_APPLICATIONS, STORAGE_CONSULT_MSGS, STORAGE_ADMIN];
-        stores.forEach(key => {
-            let data = JSON.parse(localStorage.getItem(key) || '[]');
-            let changed = false;
-            data = data.map(item => {
-                if (!item.updatedAt) {
-                    item.updatedAt = new Date().toISOString();
-                    changed = true;
+    // ---------- 云端同步函数 ----------
+    async function pullFromCloud() {
+        if (JSONBIN_BIN_ID === 'YOUR_BIN_ID') return;
+        try {
+            const res = await fetch(JSONBIN_URL, { headers: { 'X-Master-Key': JSONBIN_API_KEY } });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            const remote = data.record;
+            if (remote) {
+                mergeServerData(remote);
+                console.log('[Cloud] 拉取成功');
+                if (window.vm && window.vm.currentPhone) {
+                    window.vm.loadResumeFromStorage();
+                    window.vm.$forceUpdate();
                 }
-                return item;
+                showToast('已同步最新数据', 1500);
+            }
+        } catch (err) {
+            console.error('[Cloud] 拉取失败', err);
+        }
+    }
+
+    async function pushToCloud() {
+        if (JSONBIN_BIN_ID === 'YOUR_BIN_ID') return;
+        try {
+            const allData = {
+                users: JSON.parse(localStorage.getItem(STORAGE_USERS) || '[]'),
+                jobs: JSON.parse(localStorage.getItem(STORAGE_JOBS) || '[]'),
+                applications: JSON.parse(localStorage.getItem(STORAGE_APPLICATIONS) || '[]'),
+                consultMsgs: JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS) || '[]'),
+                adminAccounts: JSON.parse(localStorage.getItem(STORAGE_ADMIN) || '[]')
+            };
+            const res = await fetch(JSONBIN_URL, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_API_KEY },
+                body: JSON.stringify(allData)
             });
-            if (changed) localStorage.setItem(key, JSON.stringify(data));
-        });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            console.log('[Cloud] 上传成功');
+        } catch (err) {
+            console.error('[Cloud] 上传失败', err);
+        }
     }
 
-    function getAllClientData() {
-        return {
-            users: JSON.parse(localStorage.getItem(STORAGE_USERS) || '[]'),
-            jobs: JSON.parse(localStorage.getItem(STORAGE_JOBS) || '[]'),
-            applications: JSON.parse(localStorage.getItem(STORAGE_APPLICATIONS) || '[]'),
-            consultMsgs: JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS) || '[]'),
-            adminAccounts: JSON.parse(localStorage.getItem(STORAGE_ADMIN) || '[]')
-        };
+    async function fullSync() {
+        if (JSONBIN_BIN_ID === 'YOUR_BIN_ID') {
+            showToast('请先配置 JSONBin 凭证', 2000);
+            return;
+        }
+        showToast('同步中...', 1000);
+        await pullFromCloud();
+        await pushToCloud();
     }
 
+    // ---------- 合并远程数据 ----------
     function mergeServerData(serverData) {
-        function mergeArray(localArr, serverArr, idKey) {
+        function mergeArray(localArr, remoteArr, idKey) {
             const map = new Map();
             localArr.forEach(item => map.set(item[idKey], item));
-            serverArr.forEach(serverItem => {
-                const localItem = map.get(serverItem[idKey]);
-                if (!localItem) {
-                    map.set(serverItem[idKey], serverItem);
-                } else {
+            remoteArr.forEach(remoteItem => {
+                const localItem = map.get(remoteItem[idKey]);
+                if (!localItem) map.set(remoteItem[idKey], remoteItem);
+                else {
                     const localTime = localItem.updatedAt ? new Date(localItem.updatedAt) : 0;
-                    const serverTime = serverItem.updatedAt ? new Date(serverItem.updatedAt) : 0;
-                    if (serverTime > localTime) {
-                        map.set(serverItem[idKey], serverItem);
-                    }
+                    const remoteTime = remoteItem.updatedAt ? new Date(remoteItem.updatedAt) : 0;
+                    if (remoteTime > localTime) map.set(remoteItem[idKey], remoteItem);
                 }
             });
             return Array.from(map.values());
@@ -355,69 +383,40 @@
         const localMsgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS) || '[]');
         const localAdmins = JSON.parse(localStorage.getItem(STORAGE_ADMIN) || '[]');
 
-        const mergedUsers = mergeArray(localUsers, serverData.users || [], 'phone');
-        const mergedJobs = mergeArray(localJobs, serverData.jobs || [], 'id');
-        const mergedApps = mergeArray(localApps, serverData.applications || [], 'id');
-        const mergedMsgs = mergeArray(localMsgs, serverData.consultMsgs || [], 'id');
-        const mergedAdmins = mergeArray(localAdmins, serverData.adminAccounts || [], 'username');
-
-        localStorage.setItem(STORAGE_USERS, JSON.stringify(mergedUsers));
-        localStorage.setItem(STORAGE_JOBS, JSON.stringify(mergedJobs));
-        localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(mergedApps));
-        localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(mergedMsgs));
-        localStorage.setItem(STORAGE_ADMIN, JSON.stringify(mergedAdmins));
+        localStorage.setItem(STORAGE_USERS, JSON.stringify(mergeArray(localUsers, serverData.users || [], 'phone')));
+        localStorage.setItem(STORAGE_JOBS, JSON.stringify(mergeArray(localJobs, serverData.jobs || [], 'id')));
+        localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(mergeArray(localApps, serverData.applications || [], 'id')));
+        localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(mergeArray(localMsgs, serverData.consultMsgs || [], 'id')));
+        localStorage.setItem(STORAGE_ADMIN, JSON.stringify(mergeArray(localAdmins, serverData.adminAccounts || [], 'username')));
     }
 
-    async function syncFromServer() {
-        if (!API_BASE_URL) return;
-        try {
-            const res = await fetch(`${API_BASE_URL}/api/sync/download`);
-            if (!res.ok) throw new Error('下载失败');
-            const serverData = await res.json();
-            mergeServerData(serverData);
-            console.log('[Sync] 从服务器同步成功');
-            if (window.vm && window.vm.currentPhone) {
-                window.vm.loadResumeFromStorage();
-                window.vm.$forceUpdate();
-            }
-            showToast('已同步最新数据', 1500);
-        } catch (err) {
-            console.error('[Sync] 拉取服务器数据失败', err);
-        }
+    // ---------- 辅助函数 ----------
+    function addTimestampsToAllData() {
+        const stores = [STORAGE_USERS, STORAGE_JOBS, STORAGE_APPLICATIONS, STORAGE_CONSULT_MSGS, STORAGE_ADMIN];
+        stores.forEach(key => {
+            let data = JSON.parse(localStorage.getItem(key) || '[]');
+            let changed = false;
+            data = data.map(item => { if (!item.updatedAt) { item.updatedAt = new Date().toISOString(); changed = true; } return item; });
+            if (changed) localStorage.setItem(key, JSON.stringify(data));
+        });
     }
 
-    async function syncToServer() {
-        if (!API_BASE_URL) return;
-        try {
-            const clientData = getAllClientData();
-            const res = await fetch(`${API_BASE_URL}/api/sync/upload`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(clientData)
-            });
-            if (res.ok) console.log('[Sync] 上传成功');
-        } catch (err) {
-            console.warn('[Sync] 上传失败', err);
-        }
-    }
-
-    async function fullSync() {
-        if (!API_BASE_URL) {
-            showToast('未配置同步服务器地址', 1500);
-            return;
-        }
-        showToast('正在同步...', 1000);
-        await syncToServer();
-        await syncFromServer();
-    }
-
-    let syncInterval = null;
-    function startAutoSync() {
-        if (syncInterval) clearInterval(syncInterval);
-        if (!API_BASE_URL) return;
-        syncInterval = setInterval(() => {
-            fullSync();
-        }, SYNC_INTERVAL_MS);
+    function ensureJobFields(jobs) {
+        return jobs.map(job => {
+            if (job.heat === undefined) job.heat = 0;
+            if (job.sticky === undefined) job.sticky = false;
+            if (!job.description) job.description = '';
+            let oldTag = job.tag || '';
+            let newTag = '';
+            if (['出国外派','外雇打工','留学打工','留学升学历','央国企内推','央国企就业指导'].includes(oldTag)) newTag = oldTag;
+            else if (oldTag.includes('外派') || oldTag.includes('央企直招')) newTag = '出国外派';
+            else if (oldTag.includes('留学生')) newTag = '留学升学历';
+            else if (oldTag.includes('急聘')) newTag = '外雇打工';
+            else newTag = '出国外派';
+            job.tag = newTag;
+            delete job.category;
+            return job;
+        });
     }
 
     function showToast(msg, duration = 2000) {
@@ -428,54 +427,37 @@
         setTimeout(() => div.remove(), duration);
     }
 
-    addTimestampsToAllData();
-
-    // ---------- 业务数据初始化 ----------
-    function ensureJobFields(jobs) {
-        return jobs.map(job => {
-            if (job.heat === undefined) job.heat = 0;
-            if (job.sticky === undefined) job.sticky = false;
-            if (!job.description) job.description = '';
-            let oldTag = job.tag || '';
-            let oldCat = job.category || '';
-            let newTag = '';
-            if (oldCat && ['出国外派','外雇打工','留学打工','留学升学历','央国企内推','央国企就业指导'].includes(oldCat)) {
-                newTag = oldCat;
-            } else if (oldTag && ['出国外派','外雇打工','留学打工','留学升学历','央国企内推','央国企就业指导'].includes(oldTag)) {
-                newTag = oldTag;
-            } else {
-                if (oldTag.includes('外派') || oldTag.includes('央企直招')) newTag = '出国外派';
-                else if (oldTag.includes('留学生')) newTag = '留学升学历';
-                else if (oldTag.includes('急聘')) newTag = '外雇打工';
-                else newTag = '出国外派';
-            }
-            job.tag = newTag;
-            delete job.category;
-            return job;
-        });
+    let syncInterval = null;
+    function startAutoSync() {
+        if (syncInterval) clearInterval(syncInterval);
+        if (JSONBIN_BIN_ID !== 'YOUR_BIN_ID') {
+            syncInterval = setInterval(() => pullFromCloud(), SYNC_INTERVAL_MS);
+        }
     }
 
-    if(!localStorage.getItem(STORAGE_JOBS)){
-        let defaultJobs = [
-            { id:1, title:'海外工程项目经理', company:'中国交通建设集团', location:'沙特/印尼', salary:'65-85w/年', tag:'出国外派', creator:'syadmin', heat:12, sticky:true, description:'负责海外大型基建项目管理，要求5年以上经验，英语流利，外派期间提供住宿及高额补贴。' },
-            { id:2, title:'留学生全球管培生', company:'中国五矿集团', location:'北京/新加坡', salary:'30w+外派津贴', tag:'留学升学历', creator:'syadmin', heat:8, sticky:false, description:'面向海外留学生，轮岗培养，结束可定岗国际业务部。' },
-            { id:3, title:'海外投融资分析师', company:'中金公司', location:'香港/迪拜', salary:'70-100w/年', tag:'出国外派', creator:'syadmin', heat:5, sticky:false, description:'负责跨境并购及投融资分析，要求金融相关背景。' },
-            { id:4, title:'海外财务经理', company:'中国电建', location:'非洲/东南亚', salary:'45-65w', tag:'外雇打工', creator:'syadmin', heat:9, sticky:false, description:'驻外财务全盘管理，熟悉国际会计准则。' },
-            { id:5, title:'央企内推-技术岗', company:'中国电子科技集团', location:'北京', salary:'30-40w+户口', tag:'央国企内推', creator:'syadmin', heat:3, sticky:true, description:'内推解决北京户口，要求硕士及以上学历。' }
-        ];
-        localStorage.setItem(STORAGE_JOBS, JSON.stringify(ensureJobFields(defaultJobs)));
-    } else {
-        let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS));
-        localStorage.setItem(STORAGE_JOBS, JSON.stringify(ensureJobFields(jobs)));
-    }
-
-    if(!localStorage.getItem(STORAGE_USERS)) localStorage.setItem(STORAGE_USERS, JSON.stringify([]));
-    if(!localStorage.getItem(STORAGE_APPLICATIONS)) localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify([]));
-    if(!localStorage.getItem(STORAGE_CONSULT_MSGS)) localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify([]));
-    if(!localStorage.getItem(STORAGE_ADMIN)){
-        localStorage.setItem(STORAGE_ADMIN, JSON.stringify([
-            { username:'syadmin', password: btoa('syadmin995320'), role:'super' }
-        ]));
+    // ---------- 初始化本地存储（仅无数据时）----------
+    async function initLocalData() {
+        if (JSONBIN_BIN_ID !== 'YOUR_BIN_ID') {
+            await pullFromCloud();
+        }
+        if (!localStorage.getItem(STORAGE_JOBS) || JSON.parse(localStorage.getItem(STORAGE_JOBS)).length === 0) {
+            let defaultJobs = [
+                { id:1, title:'海外工程项目经理', company:'中国交通建设集团', location:'沙特/印尼', salary:'65-85w/年', tag:'出国外派', creator:'syadmin', heat:12, sticky:true, description:'负责海外大型基建项目管理，要求5年以上经验，英语流利，外派期间提供住宿及高额补贴。' },
+                { id:2, title:'留学生全球管培生', company:'中国五矿集团', location:'北京/新加坡', salary:'30w+外派津贴', tag:'留学升学历', creator:'syadmin', heat:8, sticky:false, description:'面向海外留学生，轮岗培养，结束可定岗国际业务部。' },
+                { id:3, title:'海外投融资分析师', company:'中金公司', location:'香港/迪拜', salary:'70-100w/年', tag:'出国外派', creator:'syadmin', heat:5, sticky:false, description:'负责跨境并购及投融资分析，要求金融相关背景。' },
+                { id:4, title:'海外财务经理', company:'中国电建', location:'非洲/东南亚', salary:'45-65w', tag:'外雇打工', creator:'syadmin', heat:9, sticky:false, description:'驻外财务全盘管理，熟悉国际会计准则。' },
+                { id:5, title:'央企内推-技术岗', company:'中国电子科技集团', location:'北京', salary:'30-40w+户口', tag:'央国企内推', creator:'syadmin', heat:3, sticky:true, description:'内推解决北京户口，要求硕士及以上学历。' }
+            ];
+            localStorage.setItem(STORAGE_JOBS, JSON.stringify(ensureJobFields(defaultJobs)));
+        }
+        if (!localStorage.getItem(STORAGE_USERS)) localStorage.setItem(STORAGE_USERS, JSON.stringify([]));
+        if (!localStorage.getItem(STORAGE_APPLICATIONS)) localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify([]));
+        if (!localStorage.getItem(STORAGE_CONSULT_MSGS)) localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify([]));
+        if (!localStorage.getItem(STORAGE_ADMIN)) {
+            localStorage.setItem(STORAGE_ADMIN, JSON.stringify([{ username:'syadmin', password: btoa('syadmin995320'), role:'super' }]));
+        }
+        addTimestampsToAllData();
+        await pushToCloud();
     }
 
     // ---------- Vue 实例 ----------
@@ -509,41 +491,29 @@
             newAdminPwd: '',
             newJob: { title:'', company:'', location:'', salary:'', tag:'出国外派', description:'' },
             replyConsult: {},
-            consultModal: { visible: false, job: null, content: '' }   // 初始强制关闭
+            consultModal: { visible: false, job: null, content: '' }
         },
         computed: {
             hotJobs() {
                 let jobs = [...this.allJobs];
-                jobs.sort((a,b) => {
-                    if (a.sticky !== b.sticky) return b.sticky - a.sticky;
-                    return (b.heat || 0) - (a.heat || 0);
-                });
+                jobs.sort((a,b) => { if (a.sticky !== b.sticky) return b.sticky - a.sticky; return (b.heat || 0) - (a.heat || 0); });
                 return jobs.slice(0,20);
             },
-            allJobs() { 
-                let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS) || '[]');
-                return ensureJobFields(jobs);
-            },
+            allJobs() { return ensureJobFields(JSON.parse(localStorage.getItem(STORAGE_JOBS) || '[]')); },
             filteredJobsByCategory() {
                 let kw = this.jobKeyword.toLowerCase();
                 let jobs = this.allJobs;
-                if (this.selectedCategory !== 'all') {
-                    jobs = jobs.filter(j => j.tag === this.selectedCategory);
-                }
-                if (kw) {
-                    jobs = jobs.filter(j => j.title.toLowerCase().includes(kw) || j.company.toLowerCase().includes(kw));
-                }
+                if (this.selectedCategory !== 'all') jobs = jobs.filter(j => j.tag === this.selectedCategory);
+                if (kw) jobs = jobs.filter(j => j.title.toLowerCase().includes(kw) || j.company.toLowerCase().includes(kw));
                 return jobs;
             },
             myApps() {
                 if(!this.currentPhone) return [];
-                let apps = JSON.parse(localStorage.getItem(STORAGE_APPLICATIONS));
-                return apps.filter(a => a.phone === this.currentPhone);
+                return JSON.parse(localStorage.getItem(STORAGE_APPLICATIONS)).filter(a => a.phone === this.currentPhone);
             },
             myConsultMsgs() {
                 if(!this.currentPhone) return [];
-                let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS));
-                return msgs.filter(m => m.userPhone === this.currentPhone);
+                return JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS)).filter(m => m.userPhone === this.currentPhone);
             },
             allConsultMsgs() {
                 if(this.adminRole !== 'super') return [];
@@ -553,13 +523,10 @@
                 if(this.adminRole !== 'super') return [];
                 return JSON.parse(localStorage.getItem(STORAGE_USERS) || '[]');
             },
-            adminList() {
-                return JSON.parse(localStorage.getItem(STORAGE_ADMIN));
-            },
+            adminList() { return JSON.parse(localStorage.getItem(STORAGE_ADMIN)); },
             myOwnJobs() {
                 if(!this.adminLogged || this.adminRole !== 'normal') return [];
-                let currentAdmin = this.adminLoginUser; 
-                return this.allJobs.filter(j => j.creator === currentAdmin);
+                return this.allJobs.filter(j => j.creator === this.adminLoginUser);
             },
             profilePercent() {
                 let fields = ['name','phone','email','education','school','workExp'];
@@ -567,35 +534,25 @@
                 return Math.floor((filled/fields.length)*100);
             }
         },
-        mounted() {
-            // 关键修复：强制关闭咨询弹窗和后台弹窗
+        async mounted() {
             this.consultModal.visible = false;
-            this.consultModal.job = null;
-            this.consultModal.content = '';
             this.showAdminDialog = false;
-            this.adminLogged = false;
-            
-            this.checkLocalLogin().then(() => {
-                if (API_BASE_URL) fullSync();
-            });
+            await initLocalData();
+            this.checkLocalLogin();
             startAutoSync();
             document.addEventListener('visibilitychange', () => {
-                if (!document.hidden && this.showAdminDialog) {
-                    this.closeAdminDialog();
-                }
+                if (!document.hidden && this.showAdminDialog) this.closeAdminDialog();
             });
         },
         methods: {
-            async checkLocalLogin() {
+            checkLocalLogin() {
                 let saved = localStorage.getItem(STORAGE_CUR_USER);
                 if(saved){
                     this.currentPhone = saved;
                     this.userInfo = { phone: saved };
                     this.isLogin = true;
                     this.loadResumeFromStorage();
-                } else {
-                    this.isLogin = false;
-                }
+                } else this.isLogin = false;
             },
             loadResumeFromStorage(){
                 let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
@@ -603,7 +560,7 @@
                 if(u && u.resumeData) this.resume = { ...this.resume, ...u.resumeData };
                 if(u && u.resumeFile) { this.resumeFileBase64 = u.resumeFile; this.resumeFileName = u.resumeFileName; }
             },
-            saveResume() {
+            async saveResume() {
                 if(!this.currentPhone) return;
                 let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
                 let idx = users.findIndex(x=>x.phone === this.currentPhone);
@@ -611,7 +568,7 @@
                     users[idx].resumeData = JSON.parse(JSON.stringify(this.resume));
                     localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
                     showToast('简历已保存');
-                    syncToServer();
+                    await pushToCloud();
                 }
             },
             uploadAttach(){
@@ -619,7 +576,7 @@
                 if(!file) return showToast('请选择文件');
                 if(file.size > 10*1024*1024) return showToast('文件过大');
                 let reader = new FileReader();
-                reader.onload = (e) => {
+                reader.onload = async (e) => {
                     this.resumeFileBase64 = e.target.result;
                     this.resumeFileName = file.name;
                     let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
@@ -629,7 +586,7 @@
                         users[idx].resumeFileName = file.name;
                         localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
                         showToast('附件上传成功');
-                        syncToServer();
+                        await pushToCloud();
                     }
                 };
                 reader.readAsDataURL(file);
@@ -642,7 +599,7 @@
                     a.click();
                 } else showToast('无附件');
             },
-            doRegister(){
+            async doRegister(){
                 const phoneRegex = /^1[3-9]\d{9}$/;
                 if(!phoneRegex.test(this.regPhone)) return showToast('请输入正确的11位手机号');
                 if(!this.regPassword || this.regPassword.length < 4) return showToast('密码长度至少4位');
@@ -650,28 +607,18 @@
                 if(!/^\d{6}$/.test(this.regSecurityCode)) return showToast('安全码必须为6位数字');
                 let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
                 if(users.find(u => u.phone === this.regPhone)) return showToast('手机号已注册');
-                let newUser = {
-                    phone: this.regPhone,
-                    password: btoa(this.regPassword),
-                    securityCode: this.regSecurityCode,
-                    resumeData: null,
-                    resumeFile: null,
-                    resumeFileName: '',
-                    createTime: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
-                };
-                users.push(newUser);
+                users.push({
+                    phone: this.regPhone, password: btoa(this.regPassword), securityCode: this.regSecurityCode,
+                    resumeData: null, resumeFile: null, resumeFileName: '', createTime: new Date().toISOString(), updatedAt: new Date().toISOString()
+                });
                 localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
                 showToast('注册成功，请登录');
                 this.showRegister = false;
                 this.loginPhone = this.regPhone;
-                this.regPhone = '';
-                this.regPassword = '';
-                this.regConfirmPwd = '';
-                this.regSecurityCode = '';
-                syncToServer();
+                this.regPhone = this.regPassword = this.regConfirmPwd = this.regSecurityCode = '';
+                await pushToCloud();
             },
-            doLogin(){
+            async doLogin(){
                 const phoneRegex = /^1[3-9]\d{9}$/;
                 if(!phoneRegex.test(this.loginPhone)) return showToast('请输入正确的手机号');
                 if(!this.loginPassword) return showToast('请输入密码');
@@ -684,14 +631,11 @@
                     this.isLogin = true;
                     this.loadResumeFromStorage();
                     showToast('登录成功');
-                    this.loginPhone = '';
-                    this.loginPassword = '';
-                    if (API_BASE_URL) fullSync();
-                } else {
-                    showToast('手机号或密码错误');
-                }
+                    this.loginPhone = this.loginPassword = '';
+                    await pullFromCloud();
+                } else showToast('手机号或密码错误');
             },
-            doChangePwd(){
+            async doChangePwd(){
                 if(!this.currentPhone) return;
                 let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
                 let idx = users.findIndex(u => u.phone === this.currentPhone);
@@ -708,7 +652,7 @@
                 this.logout();
                 this.showChangePwd = false;
                 this.changePwd = { oldPwd: '', newPwd: '', confirmPwd: '', securityCode: '' };
-                syncToServer();
+                await pushToCloud();
             },
             logout(){
                 localStorage.removeItem(STORAGE_CUR_USER);
@@ -716,25 +660,20 @@
                 this.currentPhone = null;
                 showToast('已退出');
             },
-            applyJob(job){
+            async applyJob(job){
                 if(!this.isLogin){ showToast('请先登录'); this.currentView='profile'; return; }
                 if(!this.resume.name || !this.resume.phone){ showToast('请先完善姓名和手机号'); this.currentView='profile'; return; }
                 let apps = JSON.parse(localStorage.getItem(STORAGE_APPLICATIONS));
-                let has = apps.some(a => a.phone === this.currentPhone && a.jobId === job.id);
-                if(has) return showToast('已投递过该职位');
+                if(apps.some(a => a.phone === this.currentPhone && a.jobId === job.id)) return showToast('已投递过该职位');
                 apps.push({ id:Date.now(), phone:this.currentPhone, jobId:job.id, jobTitle:job.title, company:job.company, time:new Date().toLocaleString(), status:'已投递', updatedAt: new Date().toISOString() });
                 localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(apps));
                 let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS));
                 let targetJob = jobs.find(j => j.id === job.id);
-                if(targetJob){
-                    targetJob.heat = (targetJob.heat || 0) + 1;
-                    targetJob.updatedAt = new Date().toISOString();
-                    localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
-                }
+                if(targetJob){ targetJob.heat = (targetJob.heat || 0) + 1; targetJob.updatedAt = new Date().toISOString(); localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs)); }
                 showToast(`成功投递 ${job.title}`);
-                syncToServer();
+                await pushToCloud();
             },
-            updateJobHeatSticky(job){
+            async updateJobHeatSticky(job){
                 let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS));
                 let idx = jobs.findIndex(j => j.id === job.id);
                 if(idx !== -1){
@@ -744,35 +683,27 @@
                     jobs[idx].updatedAt = new Date().toISOString();
                     localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
                     showToast('已更新');
-                    syncToServer();
+                    await pushToCloud();
                 }
             },
             openConsult(job){
-                // 防止未登录或无效job导致自动打开
                 if(!this.isLogin){ showToast('请先登录'); this.currentView='profile'; return; }
-                if(!job || !job.id){ console.warn('无效的职位'); return; }
+                if(!job || !job.id) return;
                 this.consultModal = { visible: true, job: job, content: '' };
             },
-            submitConsult(){
+            async submitConsult(){
                 if(!this.consultModal.content.trim()) return showToast('请输入咨询内容');
                 let msg = {
-                    id: Date.now(),
-                    userPhone: this.currentPhone,
-                    userName: this.resume.name || this.currentPhone,
-                    jobId: this.consultModal.job.id,
-                    jobTitle: this.consultModal.job.title,
-                    jobCompany: this.consultModal.job.company,
-                    content: this.consultModal.content,
-                    time: new Date().toLocaleString(),
-                    reply: null,
-                    updatedAt: new Date().toISOString()
+                    id: Date.now(), userPhone: this.currentPhone, userName: this.resume.name || this.currentPhone,
+                    jobId: this.consultModal.job.id, jobTitle: this.consultModal.job.title, jobCompany: this.consultModal.job.company,
+                    content: this.consultModal.content, time: new Date().toLocaleString(), reply: null, updatedAt: new Date().toISOString()
                 };
                 let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS));
                 msgs.push(msg);
                 localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs));
                 showToast('咨询已发送');
                 this.consultModal.visible = false;
-                syncToServer();
+                await pushToCloud();
             },
             adminLogin(){
                 let admins = JSON.parse(localStorage.getItem(STORAGE_ADMIN));
@@ -783,73 +714,48 @@
                     this.adminLoginUser = found.username;
                     this.adminLoginPwd = '';
                     showToast(`欢迎，${found.username}`);
-                } else {
-                    showToast('账号或密码错误');
-                    this.adminLoginUser = '';
-                    this.adminLoginPwd = '';
-                }
+                } else { showToast('账号或密码错误'); this.adminLoginUser = ''; this.adminLoginPwd = ''; }
             },
-            closeAdminDialog() {
-                this.showAdminDialog = false;
-                this.adminLoginUser = '';
-                this.adminLoginPwd = '';
-            },
-            adminLogoutAndClose(){
-                this.adminLogged = false;
-                this.adminRole = null;
-                this.adminLoginUser = '';
-                this.adminLoginPwd = '';
-                this.showAdminDialog = false;
-                showToast('已退出后台');
-            },
-            addAdmin(){
+            closeAdminDialog() { this.showAdminDialog = false; this.adminLoginUser = ''; this.adminLoginPwd = ''; },
+            adminLogoutAndClose(){ this.adminLogged = false; this.adminRole = null; this.adminLoginUser = ''; this.adminLoginPwd = ''; this.showAdminDialog = false; showToast('已退出后台'); },
+            async addAdmin(){
                 if(!this.newAdminName || !this.newAdminPwd) return showToast('请输入用户名密码');
                 let admins = JSON.parse(localStorage.getItem(STORAGE_ADMIN));
                 if(admins.find(a => a.username === this.newAdminName)) return showToast('用户名已存在');
                 admins.push({ username: this.newAdminName, password: btoa(this.newAdminPwd), role: 'normal', updatedAt: new Date().toISOString() });
                 localStorage.setItem(STORAGE_ADMIN, JSON.stringify(admins));
-                this.newAdminName = '';
-                this.newAdminPwd = '';
+                this.newAdminName = this.newAdminPwd = '';
                 showToast('添加成功');
-                syncToServer();
+                await pushToCloud();
             },
-            deleteAdmin(username){
+            async deleteAdmin(username){
                 let admins = JSON.parse(localStorage.getItem(STORAGE_ADMIN));
                 let newList = admins.filter(a => a.username !== username);
                 localStorage.setItem(STORAGE_ADMIN, JSON.stringify(newList));
                 showToast('已删除管理员');
-                syncToServer();
+                await pushToCloud();
             },
-            publishJob(){
+            async publishJob(){
                 if(!this.newJob.title || !this.newJob.company) return showToast('请填写完整');
                 let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS));
                 let creator = this.adminRole === 'super' ? 'syadmin' : this.adminLoginUser;
                 let newId = Date.now();
-                let newJobObj = {
-                    id: newId,
-                    ...this.newJob,
-                    creator,
-                    heat: 0,
-                    sticky: false,
-                    description: this.newJob.description || '',
-                    updatedAt: new Date().toISOString()
-                };
-                jobs.push(newJobObj);
+                jobs.push({ id: newId, ...this.newJob, creator, heat: 0, sticky: false, description: this.newJob.description || '', updatedAt: new Date().toISOString() });
                 localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
                 showToast('职位发布成功');
                 this.newJob = { title:'', company:'', location:'', salary:'', tag:'出国外派', description:'' };
-                syncToServer();
+                await pushToCloud();
             },
-            deleteJob(jobId){
+            async deleteJob(jobId){
                 let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS));
                 let job = jobs.find(j => j.id === jobId);
                 if(this.adminRole === 'normal' && job.creator !== this.adminLoginUser) return showToast('无权限删除他人职位');
                 jobs = jobs.filter(j => j.id !== jobId);
                 localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
                 showToast('职位已删除');
-                syncToServer();
+                await pushToCloud();
             },
-            deleteUser(phone){
+            async deleteUser(phone){
                 if(this.adminRole !== 'super') return;
                 let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
                 users = users.filter(u => u.phone !== phone);
@@ -861,34 +767,24 @@
                 msgs = msgs.filter(m => m.userPhone !== phone);
                 localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs));
                 showToast('已删除求职者账号及相关数据');
-                syncToServer();
+                await pushToCloud();
             },
-            replyConsultMsg(msgId){
+            async replyConsultMsg(msgId){
                 let replyText = this.replyConsult[msgId];
                 if(!replyText) return;
                 let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS));
                 let idx = msgs.findIndex(m => m.id == msgId);
-                if(idx !== -1){
-                    msgs[idx].reply = replyText;
-                    msgs[idx].updatedAt = new Date().toISOString();
-                    localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs));
-                    showToast('回复已保存');
-                    delete this.replyConsult[msgId];
-                    syncToServer();
-                }
+                if(idx !== -1){ msgs[idx].reply = replyText; msgs[idx].updatedAt = new Date().toISOString(); localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs)); showToast('回复已保存'); delete this.replyConsult[msgId]; await pushToCloud(); }
             },
-            deleteConsultMsg(msgId){
+            async deleteConsultMsg(msgId){
                 let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS));
                 msgs = msgs.filter(m => m.id !== msgId);
                 localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs));
                 showToast('已删除咨询消息');
-                syncToServer();
+                await pushToCloud();
             },
             quickTip(msg){ showToast(msg); },
-            manualSyncNow() {
-                if(API_BASE_URL) fullSync();
-                else showToast('未配置同步服务器地址', 1500);
-            }
+            manualSyncNow() { fullSync(); }
         }
     });
     window.vm = vm;
