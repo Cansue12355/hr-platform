@@ -9,18 +9,14 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: #f1f5f9; }
-        /* 全局容器 仿小程序 */
         #app { max-width: 500px; margin: 0 auto; background: #f8fafc; min-height: 100vh; position: relative; box-shadow: 0 0 20px rgba(0,0,0,0.05); }
-        /* 头部样式 */
         .header { padding: 12px 16px; background: white; border-bottom: 1px solid #eef2f6; position: sticky; top: 0; z-index: 10; }
         .logo { font-size: 1.5rem; font-weight: 800; background: linear-gradient(135deg, #0c4a6e, #2b7a62); -webkit-background-clip: text; background-clip: text; color: transparent; }
         .content { padding: 12px 16px 80px; overflow-y: auto; height: calc(100vh - 60px); }
-        /* 标签栏 */
         .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; max-width: 500px; margin: 0 auto; background: rgba(255,255,255,0.96); backdrop-filter: blur(10px); display: flex; justify-content: space-around; padding: 8px 12px 20px; border-top: 1px solid #eef2f8; z-index: 20; }
         .tab-item { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 0.7rem; color: #7e8b9c; cursor: pointer; }
         .tab-item i { font-size: 1.5rem; }
         .tab-item.active { color: #1e4a76; font-weight: 600; }
-        /* 卡片通用 */
         .card { background: white; border-radius: 28px; padding: 20px; margin-bottom: 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); border: 1px solid #eef2f8; }
         .btn { background: #1e4a76; color: white; border: none; padding: 10px 18px; border-radius: 40px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
         .btn-outline { background: white; border: 1px solid #1e4a76; color: #1e4a76; }
@@ -30,13 +26,16 @@
         .grid-item { background: white; flex: 1; text-align: center; padding: 12px 0; border-radius: 24px; border: 1px solid #eef2f8; cursor: pointer; }
         .job-card { background: white; border-radius: 24px; padding: 14px; margin-bottom: 12px; border: 1px solid #eef2f8; cursor: pointer; }
         .tag { background: #eef2ff; padding: 4px 10px; border-radius: 40px; font-size: 0.7rem; display: inline-block; }
-        .apply-btn { background: #f1f5f9; border-radius: 30px; padding: 6px 14px; font-size: 0.7rem; font-weight: 600; color: #1e4a76; border: none; float: right; cursor: pointer; }
+        .apply-btn, .consult-btn { background: #f1f5f9; border-radius: 30px; padding: 6px 14px; font-size: 0.7rem; font-weight: 600; color: #1e4a76; border: none; cursor: pointer; }
+        .consult-btn { background: #e6f7ec; color: #2b7a62; margin-left: 8px; }
         .admin-float { position: fixed; bottom: 80px; right: 16px; background: #1e4a76; color: white; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.2); cursor: pointer; z-index: 30; font-size: 1.4rem; }
         .modal-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
         .modal-box { background: white; max-width: 400px; width: 90%; border-radius: 32px; padding: 24px; max-height: 80%; overflow-y: auto; }
         input, textarea, select { width: 100%; padding: 12px; border: 1px solid #cfdde6; border-radius: 40px; font-size: 0.9rem; margin-bottom: 12px; }
         .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: #1f2937; color: white; padding: 6px 18px; border-radius: 40px; font-size: 0.75rem; z-index: 1000; white-space: nowrap; }
         hr { margin: 12px 0; }
+        .msg-item { border-bottom: 1px solid #eef2f8; padding: 12px 0; }
+        .danger-btn { background: #dc2626; color: white; border: none; border-radius: 30px; padding: 4px 12px; }
     </style>
 </head>
 <body>
@@ -54,11 +53,14 @@
                 <div class="grid-item" @click="quickTip('咨询热线400-882-6688')"><i class="fas fa-headset"></i><span>HR咨询</span></div>
             </div>
             <div class="flex"><h4>🔥 热门推荐职位</h4><span style="font-size:0.7rem; color:#2b7a62;" @click="currentView='jobs'">更多 ></span></div>
-            <div v-for="job in hotJobs" :key="job.id" class="job-card" @click="viewJob(job)">
+            <div v-for="job in hotJobs" :key="job.id" class="job-card">
                 <div class="flex"><strong>{{ job.title }}</strong><span class="tag">{{ job.tag }}</span></div>
                 <div style="font-size:0.75rem;">{{ job.company }}</div>
                 <div class="flex"><span><i class="fas fa-map-marker-alt"></i> {{ job.location }}</span><span class="tag" style="background:#e6f7e6;">{{ job.salary }}</span></div>
-                <button class="apply-btn" @click.stop="applyJob(job)">立即申请</button>
+                <div class="flex" style="margin-top: 8px;">
+                    <button class="apply-btn" @click.stop="applyJob(job)">立即申请</button>
+                    <button class="consult-btn" @click.stop="openConsult(job)">💬 咨询HR</button>
+                </div>
             </div>
         </div>
 
@@ -68,27 +70,24 @@
             <div v-for="job in filteredJobs" :key="job.id" class="job-card">
                 <div class="flex"><strong>{{ job.title }}</strong><span class="tag">{{ job.tag }}</span></div>
                 <div>{{ job.company }} · {{ job.location }}</div>
-                <div class="flex"><span>💰 {{ job.salary }}</span><button class="apply-btn" @click="applyJob(job)">投递简历</button></div>
+                <div class="flex"><span>💰 {{ job.salary }}</span></div>
+                <div class="flex" style="margin-top: 8px;">
+                    <button class="apply-btn" @click="applyJob(job)">投递简历</button>
+                    <button class="consult-btn" @click="openConsult(job)">💬 咨询HR</button>
+                </div>
             </div>
         </div>
 
-        <!-- 留言板 -->
+        <!-- 消息（求职者自己的留言反馈，仅展示自己的咨询消息及回复） -->
         <div v-if="currentView === 'message'">
             <div class="card">
-                <h4>📢 联系HR / 留言咨询</h4>
-                <input type="text" placeholder="您的姓名" v-model="msgForm.name">
-                <input type="email" placeholder="邮箱(选填)" v-model="msgForm.email">
-                <textarea rows="2" placeholder="留言内容" v-model="msgForm.content"></textarea>
-                <button class="btn" style="width:100%;" @click="submitMsg">提交留言 <i class="fas fa-paper-plane"></i></button>
-            </div>
-            <div class="card">
-                <h4>📋 历史留言反馈</h4>
-                <div v-for="m in myMessages" :key="m.id" style="border-bottom:1px solid #eee; padding:8px 0;">
-                    <strong>{{ m.name }}</strong> <span style="font-size:0.6rem;">{{ m.time }}</span>
-                    <p>{{ m.content }}</p>
-                    <p v-if="m.reply" style="color:#2b7a62;"><i class="fas fa-reply"></i> 回复：{{ m.reply }}</p>
+                <h4>📬 我的咨询记录 (HR回复可见)</h4>
+                <div v-for="msg in myConsultMsgs" :key="msg.id" class="msg-item">
+                    <div><strong>职位：{{ msg.jobTitle }}</strong> <span style="font-size:0.6rem;">{{ msg.time }}</span></div>
+                    <p>我：{{ msg.content }}</p>
+                    <p v-if="msg.reply" style="color:#2b7a62;"><i class="fas fa-reply"></i> 回复：{{ msg.reply }}</p>
                 </div>
-                <div v-if="myMessages.length===0" style="color:#aaa; text-align:center;">暂无留言</div>
+                <div v-if="myConsultMsgs.length===0" style="color:#aaa; text-align:center;">暂无咨询</div>
             </div>
         </div>
 
@@ -97,12 +96,12 @@
             <div v-if="!isLogin" class="card" style="text-align:center;">
                 <i class="fab fa-weixin" style="font-size:3rem; color:#07c160;"></i>
                 <h3>微信授权登录</h3>
-                <p>拉取微信信息并绑定手机号，永久保存简历</p>
-                <button class="btn" style="background:#07c160;" @click="showWechatAuth">🔑 微信一键授权登录</button>
+                <p>一键授权，无需手机验证</p>
+                <button class="btn" style="background:#07c160;" @click="mockWechatLogin">🔑 微信一键授权登录</button>
             </div>
             <div v-else>
                 <div class="card flex">
-                    <div><i class="fas fa-user-circle fa-2x"></i> <strong>{{ userInfo.nickname }}</strong> <span class="tag">已绑定手机</span></div>
+                    <div><i class="fas fa-user-circle fa-2x"></i> <strong>{{ userInfo.nickname }}</strong> <span class="tag">微信用户</span></div>
                     <button class="btn-outline btn-sm" @click="logout">退出</button>
                 </div>
                 <div class="card">
@@ -139,16 +138,16 @@
     <div class="tab-bar">
         <div class="tab-item" :class="{active: currentView === 'home'}" @click="currentView='home'"><i class="fas fa-home"></i><span>首页</span></div>
         <div class="tab-item" :class="{active: currentView === 'jobs'}" @click="currentView='jobs'"><i class="fas fa-briefcase"></i><span>职位</span></div>
-        <div class="tab-item" :class="{active: currentView === 'message'}" @click="currentView='message'"><i class="far fa-comment"></i><span>留言</span></div>
+        <div class="tab-item" :class="{active: currentView === 'message'}" @click="currentView='message'"><i class="far fa-comment"></i><span>消息</span></div>
         <div class="tab-item" :class="{active: currentView === 'profile'}" @click="currentView='profile'"><i class="far fa-user"></i><span>我的</span></div>
     </div>
 
-    <!-- 管理员悬浮按钮 (只有登录管理员才显示面板，不登录显示锁) -->
+    <!-- 管理员悬浮入口 -->
     <div class="admin-float" @click="showAdminDialog = true">
         <i class="fas fa-crown"></i>
     </div>
 
-    <!-- 管理员登录模态框 & 后台面板 -->
+    <!-- 管理员后台模态框（根据角色展示不同内容） -->
     <div v-if="showAdminDialog" class="modal-mask" @click.self="showAdminDialog=false">
         <div class="modal-box">
             <div v-if="!adminLogged">
@@ -156,79 +155,87 @@
                 <input type="text" placeholder="账号" v-model="adminLoginUser">
                 <input type="password" placeholder="密码" v-model="adminLoginPwd">
                 <button class="btn" style="width:100%;" @click="adminLogin">登录</button>
-                <div style="font-size:0.7rem; margin-top:12px;">最高管理员: syadmin / syadmin995320</div>
+                <div style="font-size:0.7rem; margin-top:12px;">超级管理员: syadmin / syadmin995320</div>
             </div>
             <div v-else>
-                <div class="flex"><h3>⚙️ 管理控制台</h3><button class="btn-outline btn-sm" @click="adminLogout">退出后台</button></div>
+                <div class="flex"><h3>⚙️ 控制台 ({{ adminRole === 'super' ? '超级管理员' : '招聘管理员' }})</h3><button class="btn-outline btn-sm" @click="adminLogout">退出</button></div>
                 <hr>
-                <h4>➕ 发布新职位</h4>
-                <input placeholder="职位名称" v-model="newJob.title">
-                <input placeholder="公司" v-model="newJob.company">
-                <input placeholder="地点" v-model="newJob.location">
-                <input placeholder="薪资范围" v-model="newJob.salary">
-                <select v-model="newJob.tag"><option>外派·央企直招</option><option>留学生专属</option><option>急聘</option></select>
-                <button class="btn" style="width:100%;" @click="publishJob">发布职位</button>
-                <hr>
-                <h4>📌 职位管理 (点击删除)</h4>
-                <div v-for="job in allJobs" :key="job.id" class="flex" style="border-bottom:1px solid #eee; padding:8px 0;">
+                <!-- 超级管理员专属：管理员账号管理 -->
+                <div v-if="adminRole === 'super'">
+                    <h4>👥 普通管理员管理</h4>
+                    <div class="flex"><input v-model="newAdminName" placeholder="用户名" style="flex:2;"><input type="password" v-model="newAdminPwd" placeholder="密码" style="flex:2;"><button @click="addAdmin">添加</button></div>
+                    <div v-for="adm in adminList" :key="adm.username" class="flex">
+                        <span>{{ adm.username }} ({{ adm.role }})</span>
+                        <button class="danger-btn" v-if="adm.username !== 'syadmin'" @click="deleteAdmin(adm.username)">删除</button>
+                    </div>
+                    <hr>
+                </div>
+                <!-- 职位管理：超级管理员可删任何职位，普通管理员只能删自己发布的 -->
+                <h4>📌 职位管理</h4>
+                <div v-if="adminRole === 'super' || adminRole === 'normal'">
+                    <div class="flex"><input placeholder="职位名称" v-model="newJob.title"><input placeholder="公司" v-model="newJob.company"></div>
+                    <div class="flex"><input placeholder="地点" v-model="newJob.location"><input placeholder="薪资" v-model="newJob.salary"></div>
+                    <select v-model="newJob.tag"><option>外派·央企直招</option><option>留学生专属</option><option>急聘</option></select>
+                    <button class="btn" style="width:100%; margin-bottom:12px;" @click="publishJob">发布职位</button>
+                </div>
+                <div v-for="job in (adminRole === 'super' ? allJobs : myOwnJobs)" :key="job.id" class="flex" style="border-bottom:1px solid #eee; padding:8px 0;">
                     <span>{{ job.title }} - {{ job.company }}</span>
                     <button class="btn-outline btn-sm" @click="deleteJob(job.id)">删除</button>
                 </div>
                 <hr>
-                <h4>👥 求职者简历库 (应聘信息)</h4>
-                <div v-for="user in allUsers" :key="user.userId" class="card" style="margin-bottom:12px;">
-                    <div><strong>{{ user.nickname }}</strong> ({{ user.resumeData?.name || '未填姓名' }}) 手机:{{ user.resumeData?.phone || '-' }}</div>
-                    <div>意向: {{ user.resumeData?.intention || '无' }} | 学历: {{ user.resumeData?.education }}</div>
-                    <div><button class="btn-sm" @click="viewUserDetail(user)">查看完整档案</button></div>
-                </div>
-                <hr>
-                <h4>💬 留言管理 (可回复)</h4>
-                <div v-for="msg in allMessages" :key="msg.id" style="border-bottom:1px solid #ddd; padding:8px;">
-                    <div><strong>{{ msg.name }}</strong> ({{ msg.email }}) {{ msg.time }}</div>
-                    <p>{{ msg.content }}</p>
-                    <div v-if="msg.reply"><i class="fas fa-reply"></i> 回复: {{ msg.reply }}</div>
-                    <div v-else><input v-model="replyContent[msg.id]" placeholder="回复内容" style="width:70%;"><button @click="doReply(msg.id)">回复</button></div>
+
+                <!-- 求职者信息管理 (仅超级管理员可见) -->
+                <div v-if="adminRole === 'super'">
+                    <h4>👥 所有求职者档案 (可删除)</h4>
+                    <div v-for="user in allUsers" :key="user.userId" class="flex" style="margin-bottom:8px;">
+                        <div><strong>{{ user.nickname }}</strong> ({{ user.resumeData?.name || '未填' }}) 手机:{{ user.resumeData?.phone || '-' }}</div>
+                        <button class="danger-btn btn-sm" @click="deleteUser(user.userId)">删除账号</button>
+                    </div>
+                    <hr>
+                    <h4>💬 求职者咨询消息 (附带职位信息)</h4>
+                    <div v-for="msg in allConsultMsgs" :key="msg.id" class="msg-item">
+                        <div><strong>{{ msg.userName }}</strong> 咨询职位: {{ msg.jobTitle }} ({{ msg.jobCompany }}) <span style="font-size:0.6rem;">{{ msg.time }}</span></div>
+                        <p>内容: {{ msg.content }}</p>
+                        <div v-if="msg.reply"><i class="fas fa-reply"></i> 回复: {{ msg.reply }}</div>
+                        <div v-else class="flex"><input v-model="replyConsult[msg.id]" placeholder="回复内容" style="flex:2;"><button class="btn-sm" @click="replyConsultMsg(msg.id)">回复</button></div>
+                        <button class="danger-btn btn-sm" @click="deleteConsultMsg(msg.id)">删除此消息</button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- 微信授权模拟弹出层 (真实场景需后端OAuth，这里模拟用户绑定手机号) -->
-    <div v-if="showWechatModal" class="modal-mask" @click.self="showWechatModal=false">
+    <!-- 咨询弹窗 -->
+    <div v-if="consultModal.visible" class="modal-mask" @click.self="consultModal.visible=false">
         <div class="modal-box">
-            <h3><i class="fab fa-weixin" style="color:#07c160;"></i> 微信授权登录</h3>
-            <p>我们将获取您的微信昵称、头像，并需要绑定手机号用于招聘联系</p>
-            <input type="text" placeholder="微信昵称 (自动拉取)" v-model="wechatMock.nickname" disabled value="WeChat用户">
-            <input type="tel" placeholder="手机号码" v-model="wechatMock.phone" required>
-            <input type="text" placeholder="验证码" v-model="wechatMock.code"><button class="btn-sm" @click="sendSmsCode">获取验证码</button>
-            <button class="btn" style="width:100%; margin-top:12px;" @click="confirmWechatLogin">确认授权并登录</button>
+            <h3>💬 咨询职位：{{ consultModal.job?.title }}</h3>
+            <textarea v-model="consultModal.content" rows="4" placeholder="请输入您的问题..."></textarea>
+            <button class="btn" style="width:100%;" @click="submitConsult">发送咨询</button>
         </div>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
 <script>
-    // ---------- localStorage 存储 ----------
+    // ---------- localStorage 存储键 ----------
     const STORAGE_USERS = 'hr_users';
     const STORAGE_CUR_USER = 'hr_current_user';
     const STORAGE_JOBS = 'hr_jobs';
     const STORAGE_APPLICATIONS = 'hr_applications';
-    const STORAGE_MESSAGES = 'hr_messages';
+    const STORAGE_CONSULT_MSGS = 'hr_consult_msgs';    // 求职者咨询消息 (关联职位，仅超级管理员可见)
     const STORAGE_ADMIN = 'hr_admin_accounts';
 
     // 初始化默认数据
     if(!localStorage.getItem(STORAGE_JOBS)){
         localStorage.setItem(STORAGE_JOBS, JSON.stringify([
-            { id:1, title:'海外工程项目经理', company:'中国交通建设集团', location:'沙特/印尼', salary:'65-85w/年', tag:'外派·央企直招' },
-            { id:2, title:'留学生全球管培生', company:'中国五矿集团', location:'北京/新加坡', salary:'30w+外派津贴', tag:'留学生专属' },
-            { id:3, title:'海外投融资分析师', company:'中金公司', location:'香港/迪拜', salary:'70-100w/年', tag:'金融央企' },
-            { id:4, title:'海外财务经理', company:'中国电建', location:'非洲/东南亚', salary:'45-65w', tag:'外派急聘' },
-            { id:5, title:'科技创新管培生', company:'中国电子科技集团', location:'北京', salary:'30-40w+户口', tag:'留学生优先' }
+            { id:1, title:'海外工程项目经理', company:'中国交通建设集团', location:'沙特/印尼', salary:'65-85w/年', tag:'外派·央企直招', creator:'syadmin' },
+            { id:2, title:'留学生全球管培生', company:'中国五矿集团', location:'北京/新加坡', salary:'30w+外派津贴', tag:'留学生专属', creator:'syadmin' },
+            { id:3, title:'海外投融资分析师', company:'中金公司', location:'香港/迪拜', salary:'70-100w/年', tag:'金融央企', creator:'syadmin' }
         ]));
     }
     if(!localStorage.getItem(STORAGE_USERS)) localStorage.setItem(STORAGE_USERS, JSON.stringify([]));
     if(!localStorage.getItem(STORAGE_APPLICATIONS)) localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify([]));
-    if(!localStorage.getItem(STORAGE_MESSAGES)) localStorage.setItem(STORAGE_MESSAGES, JSON.stringify([]));
+    if(!localStorage.getItem(STORAGE_CONSULT_MSGS)) localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify([]));
     if(!localStorage.getItem(STORAGE_ADMIN)){
         localStorage.setItem(STORAGE_ADMIN, JSON.stringify([
             { username:'syadmin', password: btoa('syadmin995320'), role:'super' }
@@ -254,16 +261,16 @@
             resume: { name:'', gender:'男', birth:'', phone:'', email:'', education:'', school:'', workExp:'', skills:'', intention:'' },
             resumeFileBase64: null,
             resumeFileName: '',
-            msgForm: { name:'', email:'', content:'' },
             showAdminDialog: false,
             adminLogged: false,
+            adminRole: null,
             adminLoginUser: '',
             adminLoginPwd: '',
+            newAdminName: '',
+            newAdminPwd: '',
             newJob: { title:'', company:'', location:'', salary:'', tag:'外派·央企直招' },
-            replyContent: {},
-            showWechatModal: false,
-            wechatMock: { nickname: 'WeChat用户', phone: '', code: '' },
-            allUsersCache: []
+            replyConsult: {},
+            consultModal: { visible: false, job: null, content: '' }
         },
         computed: {
             hotJobs() { return this.allJobs.slice(0,3); },
@@ -277,17 +284,26 @@
                 let apps = JSON.parse(localStorage.getItem(STORAGE_APPLICATIONS));
                 return apps.filter(a => a.userId === this.userId);
             },
-            myMessages() {
+            myConsultMsgs() {
                 if(!this.userId) return [];
-                let msgs = JSON.parse(localStorage.getItem(STORAGE_MESSAGES));
+                let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS));
                 return msgs.filter(m => m.userId === this.userId);
             },
-            allMessages() {
-                if(!this.adminLogged) return [];
-                return JSON.parse(localStorage.getItem(STORAGE_MESSAGES) || '[]');
+            allConsultMsgs() {
+                if(this.adminRole !== 'super') return [];
+                return JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS) || '[]');
             },
             allUsers() {
+                if(this.adminRole !== 'super') return [];
                 return JSON.parse(localStorage.getItem(STORAGE_USERS) || '[]');
+            },
+            adminList() {
+                return JSON.parse(localStorage.getItem(STORAGE_ADMIN));
+            },
+            myOwnJobs() {
+                if(!this.adminLogged || this.adminRole !== 'normal') return [];
+                let currentAdmin = this.adminLoginUser; 
+                return this.allJobs.filter(j => j.creator === currentAdmin);
             },
             profilePercent() {
                 let fields = ['name','phone','email','education','school','workExp'];
@@ -352,41 +368,22 @@
                     a.click();
                 } else showToast('无附件');
             },
-            showWechatAuth(){
-                this.wechatMock = { nickname: '微信用户_'+Math.floor(Math.random()*1000), phone:'', code:'' };
-                this.showWechatModal = true;
-            },
-            sendSmsCode(){
-                if(!this.wechatMock.phone.match(/^1[3-9]\d{9}$/)) return showToast('请输入正确手机号');
-                showToast('验证码已发送: 123456 (演示)');
-                this.wechatMock.code = '123456';
-            },
-            confirmWechatLogin(){
-                if(!this.wechatMock.phone || this.wechatMock.code !== '123456') return showToast('验证码错误');
+            mockWechatLogin(){
                 let openid = 'wx_' + Date.now() + '_' + Math.random().toString(36).substr(2,6);
-                let nickname = this.wechatMock.nickname || '微信用户';
+                let nickname = '微友_' + Math.floor(Math.random()*1000);
                 let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
-                let exist = users.find(u => u.phone === this.wechatMock.phone);
-                if(exist){
-                    // 老用户直接用已有账号登录
-                    this.userId = exist.userId;
-                    this.userInfo = { nickname: exist.nickname };
-                } else {
-                    let newUser = {
-                        userId: openid, nickname: nickname, phone: this.wechatMock.phone,
-                        resumeData: null, resumeFile: null, resumeFileName: '',
-                        createTime: new Date().toISOString()
-                    };
+                let exist = users.find(u => u.openid === openid);
+                if(!exist){
+                    let newUser = { userId: openid, openid, nickname, resumeData: null, resumeFile: null, resumeFileName: '', createTime: new Date().toISOString() };
                     users.push(newUser);
                     localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
-                    this.userId = openid;
-                    this.userInfo = { nickname };
                 }
-                localStorage.setItem(STORAGE_CUR_USER, JSON.stringify({ userId: this.userId, nickname: this.userInfo.nickname, phone: this.wechatMock.phone }));
+                localStorage.setItem(STORAGE_CUR_USER, JSON.stringify({ userId: openid, nickname }));
+                this.userId = openid;
+                this.userInfo = { nickname };
                 this.isLogin = true;
                 this.loadResumeFromStorage();
-                this.showWechatModal = false;
-                showToast('登录成功，请完善简历');
+                showToast('登录成功');
             },
             logout(){
                 localStorage.removeItem(STORAGE_CUR_USER);
@@ -404,66 +401,112 @@
                 localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(apps));
                 showToast(`成功投递 ${job.title}`);
             },
-            submitMsg(){
-                if(!this.msgForm.name || !this.msgForm.content) return showToast('请填写姓名和留言');
-                let msgs = JSON.parse(localStorage.getItem(STORAGE_MESSAGES));
-                msgs.push({
+            openConsult(job){
+                if(!this.isLogin){ showToast('请先登录'); this.currentView='profile'; return; }
+                this.consultModal = { visible: true, job: job, content: '' };
+            },
+            submitConsult(){
+                if(!this.consultModal.content.trim()) return showToast('请输入咨询内容');
+                let msg = {
                     id: Date.now(),
-                    userId: this.userId || 'guest_'+Date.now(),
-                    name: this.msgForm.name,
-                    email: this.msgForm.email,
-                    content: this.msgForm.content,
+                    userId: this.userId,
+                    userName: this.userInfo.nickname,
+                    jobId: this.consultModal.job.id,
+                    jobTitle: this.consultModal.job.title,
+                    jobCompany: this.consultModal.job.company,
+                    content: this.consultModal.content,
                     time: new Date().toLocaleString(),
                     reply: null
-                });
-                localStorage.setItem(STORAGE_MESSAGES, JSON.stringify(msgs));
-                showToast('留言已提交，HR会尽快回复');
-                this.msgForm = { name:'', email:'', content:'' };
+                };
+                let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS));
+                msgs.push(msg);
+                localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs));
+                showToast('咨询已发送，超级管理员会尽快回复');
+                this.consultModal.visible = false;
             },
-            // Admin 逻辑
+            // 管理后台
             adminLogin(){
                 let admins = JSON.parse(localStorage.getItem(STORAGE_ADMIN));
                 let found = admins.find(a => a.username === this.adminLoginUser && atob(a.password) === this.adminLoginPwd);
                 if(found){
                     this.adminLogged = true;
-                    this.adminLoginUser = '';
+                    this.adminRole = found.role;
+                    this.adminLoginUser = found.username;
                     this.adminLoginPwd = '';
-                    showToast('后台管理登录成功');
+                    showToast(`欢迎，${found.username}`);
                 } else showToast('账号或密码错误');
             },
-            adminLogout(){ this.adminLogged = false; this.showAdminDialog = false; },
+            adminLogout(){
+                this.adminLogged = false;
+                this.adminRole = null;
+                this.adminLoginUser = '';
+                this.showAdminDialog = false;
+            },
+            addAdmin(){
+                if(!this.newAdminName || !this.newAdminPwd) return showToast('请输入用户名密码');
+                let admins = JSON.parse(localStorage.getItem(STORAGE_ADMIN));
+                if(admins.find(a => a.username === this.newAdminName)) return showToast('用户名已存在');
+                admins.push({ username: this.newAdminName, password: btoa(this.newAdminPwd), role: 'normal' });
+                localStorage.setItem(STORAGE_ADMIN, JSON.stringify(admins));
+                this.newAdminName = '';
+                this.newAdminPwd = '';
+                showToast('添加成功');
+            },
+            deleteAdmin(username){
+                let admins = JSON.parse(localStorage.getItem(STORAGE_ADMIN));
+                let newList = admins.filter(a => a.username !== username);
+                localStorage.setItem(STORAGE_ADMIN, JSON.stringify(newList));
+                showToast('已删除管理员');
+            },
             publishJob(){
-                if(!this.newJob.title || !this.newJob.company) return showToast('填写完整');
+                if(!this.newJob.title || !this.newJob.company) return showToast('请填写完整');
                 let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS));
-                let newId = Date.now();
-                jobs.push({ id:newId, ...this.newJob });
+                let creator = this.adminRole === 'super' ? 'syadmin' : this.adminLoginUser;
+                jobs.push({ id: Date.now(), ...this.newJob, creator });
                 localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
                 showToast('职位发布成功');
                 this.newJob = { title:'', company:'', location:'', salary:'', tag:'外派·央企直招' };
             },
             deleteJob(jobId){
                 let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS));
+                let job = jobs.find(j => j.id === jobId);
+                if(this.adminRole === 'normal' && job.creator !== this.adminLoginUser) return showToast('无权限删除他人职位');
                 jobs = jobs.filter(j => j.id !== jobId);
                 localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
-                showToast('已删除');
+                showToast('职位已删除');
             },
-            viewUserDetail(user){
-                let detail = `姓名:${user.resumeData?.name||'-'} 电话:${user.resumeData?.phone||'-'} 邮箱:${user.resumeData?.email||'-'} 学历:${user.resumeData?.education} 工作经历:${user.resumeData?.workExp||'-'}`;
-                alert(detail);
+            deleteUser(userId){
+                if(this.adminRole !== 'super') return;
+                let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
+                users = users.filter(u => u.userId !== userId);
+                localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
+                // 同时删除该用户的投递记录和咨询
+                let apps = JSON.parse(localStorage.getItem(STORAGE_APPLICATIONS));
+                apps = apps.filter(a => a.userId !== userId);
+                localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(apps));
+                let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS));
+                msgs = msgs.filter(m => m.userId !== userId);
+                localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs));
+                showToast('已删除求职者账号及相关数据');
             },
-            doReply(msgId){
-                let replyText = this.replyContent[msgId];
+            replyConsultMsg(msgId){
+                let replyText = this.replyConsult[msgId];
                 if(!replyText) return;
-                let msgs = JSON.parse(localStorage.getItem(STORAGE_MESSAGES));
+                let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS));
                 let idx = msgs.findIndex(m => m.id == msgId);
                 if(idx !== -1){
                     msgs[idx].reply = replyText;
-                    localStorage.setItem(STORAGE_MESSAGES, JSON.stringify(msgs));
+                    localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs));
                     showToast('回复已保存');
-                    delete this.replyContent[msgId];
+                    delete this.replyConsult[msgId];
                 }
             },
-            viewJob(job){ showToast(`📌 ${job.title} · 点击申请即可投递`); },
+            deleteConsultMsg(msgId){
+                let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS));
+                msgs = msgs.filter(m => m.id !== msgId);
+                localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs));
+                showToast('已删除咨询消息');
+            },
             quickTip(msg){ showToast(msg); }
         }
     });
