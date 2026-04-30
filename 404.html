@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <script>
+        var sessionHistory = sessionStorage.getItem("redirectHistory");
+        var targetUrl = window.location.pathname + window.location.search;
+        if (!sessionHistory || !sessionHistory.includes(targetUrl)) {
+            sessionStorage.setItem("redirectHistory", targetUrl);
+            window.location.replace("/仓库名/index.html?redirect-path=" + encodeURIComponent(targetUrl));
+        }
+    </script>
+</head>
+<body>
+    <p>Redirecting...</p>
+</body>
+</html>
