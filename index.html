@@ -203,8 +203,7 @@
                 <input type="text" placeholder="账号" v-model="adminLoginUser">
                 <input type="password" placeholder="密码" v-model="adminLoginPwd">
                 <button class="btn" style="width:100%;" @click="adminLogin">登录</button>
-                <div style="font-size:0.7rem; margin-top:12px;">超级管理员: syadmin / syadmin995320</div>
-            </div>
+                            </div>
             <div v-else>
                 <div class="flex"><h3>⚙️ 控制台 ({{ adminRole === 'super' ? '超级管理员' : '招聘管理员' }})</h3><button class="btn-outline btn-sm" @click="adminLogoutAndClose">退出后台</button></div>
                 <hr>
