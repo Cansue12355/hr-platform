@@ -195,7 +195,7 @@
         <i class="fas fa-crown"></i>
     </div>
 
-    <!-- 管理员后台模态框（完整版） -->
+    <!-- 管理员后台模态框 -->
     <div v-if="showAdminDialog" class="modal-mask" @click.self="closeAdminDialog">
         <div class="modal-box">
             <div v-if="!adminLogged">
@@ -208,7 +208,6 @@
             <div v-else>
                 <div class="flex"><h3>⚙️ 控制台 ({{ adminRole === 'super' ? '超级管理员' : '招聘管理员' }})</h3><button class="btn-outline btn-sm" @click="adminLogoutAndClose">退出后台</button></div>
                 <hr>
-                <!-- 超级管理员专属：管理员账号管理 -->
                 <div v-if="adminRole === 'super'">
                     <h4>👥 普通管理员管理</h4>
                     <div class="flex"><input v-model="newAdminName" placeholder="用户名" style="flex:2;"><input type="password" v-model="newAdminPwd" placeholder="密码" style="flex:2;"><button @click="addAdmin">添加</button></div>
@@ -218,7 +217,6 @@
                     </div>
                     <hr>
                 </div>
-                <!-- 职位管理 -->
                 <h4>📌 职位管理</h4>
                 <div v-if="adminRole === 'super' || adminRole === 'normal'">
                     <div class="flex"><input placeholder="职位名称" v-model="newJob.title"><input placeholder="公司" v-model="newJob.company"></div>
@@ -246,7 +244,6 @@
                     </div>
                 </div>
                 <hr>
-                <!-- 超级管理员专属 -->
                 <div v-if="adminRole === 'super'">
                     <h4>👥 所有求职者档案 (含安全码，脱敏显示)</h4>
                     <div v-for="user in allUsers" :key="user.phone" class="flex" style="margin-bottom:8px;">
@@ -297,6 +294,7 @@
     // ======================== 后端同步配置 ========================
     const API_BASE_URL = 'https://Cansue12355.github.io/hr-platform/index.html:3000';  // 请填写您的后端地址，例如 'http://your-server:3000'。留空则禁用同步功能
     const API_BASE_URL = 'https://Cansue12355.github.io/hr-platform/admin.html:3000'
+
     const SYNC_INTERVAL_MS = 2 * 60 * 1000;
 
     // ======================== localStorage keys ========================
@@ -513,7 +511,7 @@
             newAdminPwd: '',
             newJob: { title:'', company:'', location:'', salary:'', tag:'出国外派', description:'' },
             replyConsult: {},
-            consultModal: { visible: false, job: null, content: '' }
+            consultModal: { visible: false, job: null, content: '' }   // 初始强制关闭
         },
         computed: {
             hotJobs() {
@@ -572,11 +570,17 @@
             }
         },
         mounted() {
+            // 关键修复：强制关闭咨询弹窗和后台弹窗
+            this.consultModal.visible = false;
+            this.consultModal.job = null;
+            this.consultModal.content = '';
+            this.showAdminDialog = false;
+            this.adminLogged = false;
+            
             this.checkLocalLogin().then(() => {
                 if (API_BASE_URL) fullSync();
             });
             startAutoSync();
-            // 修复：页面可见性变化时，如果后台对话框还开着，自动关闭
             document.addEventListener('visibilitychange', () => {
                 if (!document.hidden && this.showAdminDialog) {
                     this.closeAdminDialog();
@@ -746,7 +750,9 @@
                 }
             },
             openConsult(job){
+                // 防止未登录或无效job导致自动打开
                 if(!this.isLogin){ showToast('请先登录'); this.currentView='profile'; return; }
+                if(!job || !job.id){ console.warn('无效的职位'); return; }
                 this.consultModal = { visible: true, job: job, content: '' };
             },
             submitConsult(){
@@ -770,7 +776,6 @@
                 this.consultModal.visible = false;
                 syncToServer();
             },
-            // 管理员后台相关
             adminLogin(){
                 let admins = JSON.parse(localStorage.getItem(STORAGE_ADMIN));
                 let found = admins.find(a => a.username === this.adminLoginUser && atob(a.password) === this.adminLoginPwd);
@@ -788,7 +793,6 @@
             },
             closeAdminDialog() {
                 this.showAdminDialog = false;
-                // 清空登录表单，避免残留
                 this.adminLoginUser = '';
                 this.adminLoginPwd = '';
             },
@@ -886,337 +890,6 @@
             manualSyncNow() {
                 if(API_BASE_URL) fullSync();
                 else showToast('未配置同步服务器地址', 1500);
-            }
-        }
-    });
-    window.vm = vm;
-    window.fullSync = fullSync;
-</script>
-</body>
-</html>            if(!this.currentPhone) return [];
-                let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS));
-                return msgs.filter(m => m.userPhone === this.currentPhone);
-            },
-            allConsultMsgs() {
-                if(this.adminRole !== 'super') return [];
-                return JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS) || '[]');
-            },
-            allUsers() {
-                if(this.adminRole !== 'super') return [];
-                return JSON.parse(localStorage.getItem(STORAGE_USERS) || '[]');
-            },
-            adminList() {
-                return JSON.parse(localStorage.getItem(STORAGE_ADMIN));
-            },
-            myOwnJobs() {
-                if(!this.adminLogged || this.adminRole !== 'normal') return [];
-                let currentAdmin = this.adminLoginUser; 
-                return this.allJobs.filter(j => j.creator === currentAdmin);
-            },
-            profilePercent() {
-                let fields = ['name','phone','email','education','school','workExp'];
-                let filled = fields.filter(f => this.resume[f] && this.resume[f].trim()).length;
-                return Math.floor((filled/fields.length)*100);
-            }
-        },
-        mounted() {
-            this.checkLocalLogin().then(() => {
-                // 登录后立即同步一次最新数据
-                fullSync();
-            });
-            // 启动定时同步
-            startAutoSync();
-        },
-        methods: {
-            async checkLocalLogin() {
-                let saved = localStorage.getItem(STORAGE_CUR_USER);
-                if(saved){
-                    this.currentPhone = saved;
-                    this.userInfo = { phone: saved };
-                    this.isLogin = true;
-                    this.loadResumeFromStorage();
-                } else {
-                    this.isLogin = false;
-                }
-            },
-            loadResumeFromStorage(){
-                let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
-                let u = users.find(x=>x.phone === this.currentPhone);
-                if(u && u.resumeData) this.resume = { ...this.resume, ...u.resumeData };
-                if(u && u.resumeFile) { this.resumeFileBase64 = u.resumeFile; this.resumeFileName = u.resumeFileName; }
-            },
-            saveResume() {
-                if(!this.currentPhone) return;
-                let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
-                let idx = users.findIndex(x=>x.phone === this.currentPhone);
-                if(idx !== -1){
-                    users[idx].resumeData = JSON.parse(JSON.stringify(this.resume));
-                    localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
-                    showToast('简历已保存');
-                    syncToServer(); // 上传到服务器
-                }
-            },
-            uploadAttach(){
-                let file = document.querySelector('#fileUpload').files[0];
-                if(!file) return showToast('请选择文件');
-                if(file.size > 10*1024*1024) return showToast('文件过大');
-                let reader = new FileReader();
-                reader.onload = (e) => {
-                    this.resumeFileBase64 = e.target.result;
-                    this.resumeFileName = file.name;
-                    let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
-                    let idx = users.findIndex(x=>x.phone === this.currentPhone);
-                    if(idx !== -1){
-                        users[idx].resumeFile = this.resumeFileBase64;
-                        users[idx].resumeFileName = file.name;
-                        localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
-                        showToast('附件上传成功');
-                        syncToServer();
-                    }
-                };
-                reader.readAsDataURL(file);
-            },
-            downloadAttach(){
-                if(this.resumeFileBase64){
-                    let a = document.createElement('a');
-                    a.href = this.resumeFileBase64;
-                    a.download = this.resumeFileName;
-                    a.click();
-                } else showToast('无附件');
-            },
-            doRegister(){
-                const phoneRegex = /^1[3-9]\d{9}$/;
-                if(!phoneRegex.test(this.regPhone)) return showToast('请输入正确的11位手机号');
-                if(!this.regPassword || this.regPassword.length < 4) return showToast('密码长度至少4位');
-                if(this.regPassword !== this.regConfirmPwd) return showToast('两次密码不一致');
-                if(!/^\d{6}$/.test(this.regSecurityCode)) return showToast('安全码必须为6位数字');
-                let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
-                if(users.find(u => u.phone === this.regPhone)) return showToast('手机号已注册');
-                let newUser = {
-                    phone: this.regPhone,
-                    password: btoa(this.regPassword),
-                    securityCode: this.regSecurityCode,
-                    resumeData: null,
-                    resumeFile: null,
-                    resumeFileName: '',
-                    createTime: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
-                };
-                users.push(newUser);
-                localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
-                showToast('注册成功，请登录');
-                this.showRegister = false;
-                this.loginPhone = this.regPhone;
-                this.regPhone = '';
-                this.regPassword = '';
-                this.regConfirmPwd = '';
-                this.regSecurityCode = '';
-                syncToServer();
-            },
-            doLogin(){
-                const phoneRegex = /^1[3-9]\d{9}$/;
-                if(!phoneRegex.test(this.loginPhone)) return showToast('请输入正确的手机号');
-                if(!this.loginPassword) return showToast('请输入密码');
-                let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
-                let user = users.find(u => u.phone === this.loginPhone && atob(u.password) === this.loginPassword);
-                if(user){
-                    localStorage.setItem(STORAGE_CUR_USER, this.loginPhone);
-                    this.currentPhone = this.loginPhone;
-                    this.userInfo = { phone: this.loginPhone };
-                    this.isLogin = true;
-                    this.loadResumeFromStorage();
-                    showToast('登录成功');
-                    this.loginPhone = '';
-                    this.loginPassword = '';
-                    // 登录后立即同步一次最新数据（从服务器拉取）
-                    fullSync();
-                } else {
-                    showToast('手机号或密码错误');
-                }
-            },
-            doChangePwd(){
-                if(!this.currentPhone) return;
-                let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
-                let idx = users.findIndex(u => u.phone === this.currentPhone);
-                if(idx === -1) return showToast('用户不存在');
-                let user = users[idx];
-                if(atob(user.password) !== this.changePwd.oldPwd) return showToast('原密码错误');
-                if(this.changePwd.newPwd !== this.changePwd.confirmPwd) return showToast('新密码与确认密码不一致');
-                if(this.changePwd.newPwd.length < 4) return showToast('新密码长度至少4位');
-                if(user.securityCode !== this.changePwd.securityCode) return showToast('安全码错误');
-                users[idx].password = btoa(this.changePwd.newPwd);
-                users[idx].updatedAt = new Date().toISOString();
-                localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
-                showToast('密码修改成功，请重新登录');
-                this.logout();
-                this.showChangePwd = false;
-                this.changePwd = { oldPwd: '', newPwd: '', confirmPwd: '', securityCode: '' };
-                syncToServer();
-            },
-            logout(){
-                localStorage.removeItem(STORAGE_CUR_USER);
-                this.isLogin = false;
-                this.currentPhone = null;
-                showToast('已退出');
-            },
-            applyJob(job){
-                if(!this.isLogin){ showToast('请先登录'); this.currentView='profile'; return; }
-                if(!this.resume.name || !this.resume.phone){ showToast('请先完善姓名和手机号'); this.currentView='profile'; return; }
-                let apps = JSON.parse(localStorage.getItem(STORAGE_APPLICATIONS));
-                let has = apps.some(a => a.phone === this.currentPhone && a.jobId === job.id);
-                if(has) return showToast('已投递过该职位');
-                apps.push({ id:Date.now(), phone:this.currentPhone, jobId:job.id, jobTitle:job.title, company:job.company, time:new Date().toLocaleString(), status:'已投递', updatedAt: new Date().toISOString() });
-                localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(apps));
-                let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS));
-                let targetJob = jobs.find(j => j.id === job.id);
-                if(targetJob){
-                    targetJob.heat = (targetJob.heat || 0) + 1;
-                    targetJob.updatedAt = new Date().toISOString();
-                    localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
-                }
-                showToast(`成功投递 ${job.title}`);
-                syncToServer();
-            },
-            updateJobHeatSticky(job){
-                let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS));
-                let idx = jobs.findIndex(j => j.id === job.id);
-                if(idx !== -1){
-                    jobs[idx].heat = job.heat;
-                    jobs[idx].sticky = job.sticky;
-                    jobs[idx].description = job.description;
-                    jobs[idx].updatedAt = new Date().toISOString();
-                    localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
-                    showToast('已更新');
-                    syncToServer();
-                }
-            },
-            openConsult(job){
-                if(!this.isLogin){ showToast('请先登录'); this.currentView='profile'; return; }
-                this.consultModal = { visible: true, job: job, content: '' };
-            },
-            submitConsult(){
-                if(!this.consultModal.content.trim()) return showToast('请输入咨询内容');
-                let msg = {
-                    id: Date.now(),
-                    userPhone: this.currentPhone,
-                    userName: this.resume.name || this.currentPhone,
-                    jobId: this.consultModal.job.id,
-                    jobTitle: this.consultModal.job.title,
-                    jobCompany: this.consultModal.job.company,
-                    content: this.consultModal.content,
-                    time: new Date().toLocaleString(),
-                    reply: null,
-                    updatedAt: new Date().toISOString()
-                };
-                let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS));
-                msgs.push(msg);
-                localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs));
-                showToast('咨询已发送');
-                this.consultModal.visible = false;
-                syncToServer();
-            },
-            adminLogin(){
-                let admins = JSON.parse(localStorage.getItem(STORAGE_ADMIN));
-                let found = admins.find(a => a.username === this.adminLoginUser && atob(a.password) === this.adminLoginPwd);
-                if(found){
-                    this.adminLogged = true;
-                    this.adminRole = found.role;
-                    this.adminLoginUser = found.username;
-                    this.adminLoginPwd = '';
-                    showToast(`欢迎，${found.username}`);
-                } else showToast('账号或密码错误');
-            },
-            adminLogout(){
-                this.adminLogged = false;
-                this.adminRole = null;
-                this.adminLoginUser = '';
-                this.showAdminDialog = false;
-            },
-            addAdmin(){
-                if(!this.newAdminName || !this.newAdminPwd) return showToast('请输入用户名密码');
-                let admins = JSON.parse(localStorage.getItem(STORAGE_ADMIN));
-                if(admins.find(a => a.username === this.newAdminName)) return showToast('用户名已存在');
-                admins.push({ username: this.newAdminName, password: btoa(this.newAdminPwd), role: 'normal', updatedAt: new Date().toISOString() });
-                localStorage.setItem(STORAGE_ADMIN, JSON.stringify(admins));
-                this.newAdminName = '';
-                this.newAdminPwd = '';
-                showToast('添加成功');
-                syncToServer();
-            },
-            deleteAdmin(username){
-                let admins = JSON.parse(localStorage.getItem(STORAGE_ADMIN));
-                let newList = admins.filter(a => a.username !== username);
-                localStorage.setItem(STORAGE_ADMIN, JSON.stringify(newList));
-                showToast('已删除管理员');
-                syncToServer();
-            },
-            publishJob(){
-                if(!this.newJob.title || !this.newJob.company) return showToast('请填写完整');
-                let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS));
-                let creator = this.adminRole === 'super' ? 'syadmin' : this.adminLoginUser;
-                let newId = Date.now();
-                let newJobObj = {
-                    id: newId,
-                    ...this.newJob,
-                    creator,
-                    heat: 0,
-                    sticky: false,
-                    description: this.newJob.description || '',
-                    updatedAt: new Date().toISOString()
-                };
-                jobs.push(newJobObj);
-                localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
-                showToast('职位发布成功');
-                this.newJob = { title:'', company:'', location:'', salary:'', tag:'出国外派', description:'' };
-                syncToServer();
-            },
-            deleteJob(jobId){
-                let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS));
-                let job = jobs.find(j => j.id === jobId);
-                if(this.adminRole === 'normal' && job.creator !== this.adminLoginUser) return showToast('无权限删除他人职位');
-                jobs = jobs.filter(j => j.id !== jobId);
-                localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
-                showToast('职位已删除');
-                syncToServer();
-            },
-            deleteUser(phone){
-                if(this.adminRole !== 'super') return;
-                let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
-                users = users.filter(u => u.phone !== phone);
-                localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
-                let apps = JSON.parse(localStorage.getItem(STORAGE_APPLICATIONS));
-                apps = apps.filter(a => a.phone !== phone);
-                localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(apps));
-                let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS));
-                msgs = msgs.filter(m => m.userPhone !== phone);
-                localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs));
-                showToast('已删除求职者账号及相关数据');
-                syncToServer();
-            },
-            replyConsultMsg(msgId){
-                let replyText = this.replyConsult[msgId];
-                if(!replyText) return;
-                let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS));
-                let idx = msgs.findIndex(m => m.id == msgId);
-                if(idx !== -1){
-                    msgs[idx].reply = replyText;
-                    msgs[idx].updatedAt = new Date().toISOString();
-                    localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs));
-                    showToast('回复已保存');
-                    delete this.replyConsult[msgId];
-                    syncToServer();
-                }
-            },
-            deleteConsultMsg(msgId){
-                let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS));
-                msgs = msgs.filter(m => m.id !== msgId);
-                localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs));
-                showToast('已删除咨询消息');
-                syncToServer();
-            },
-            quickTip(msg){ showToast(msg); },
-            manualSyncNow() {
-                fullSync();
             }
         }
     });
