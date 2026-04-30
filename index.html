@@ -203,7 +203,7 @@
                 <input type="text" placeholder="账号" v-model="adminLoginUser">
                 <input type="password" placeholder="密码" v-model="adminLoginPwd">
                 <button class="btn" style="width:100%;" @click="adminLogin">登录</button>
-                            </div>
+            </div>
             <div v-else>
                 <div class="flex"><h3>⚙️ 控制台 ({{ adminRole === 'super' ? '超级管理员' : '招聘管理员' }})</h3><button class="btn-outline btn-sm" @click="adminLogoutAndClose">退出后台</button></div>
                 <hr>
@@ -291,11 +291,12 @@
 <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
 <script>
     // ======================== JSONBin 云存储配置 ========================
-    // 👇 请替换为您的实际 Bin ID 和 API Key（在 jsonbin.io 注册后获取）
-    const JSONBIN_BIN_ID = '69f37038aaba88219757286c';      // 例如 '65f1a2b3c4d5e6f7g8h9i0'
-    const JSONBIN_API_KEY = '$2a$10$P4yMa6EFV5rBU98ajof0j.rvYd/yUZpuyrP/m3Na5DYzDf87HaFEa';    // 例如 '$2a$10$xxxx...'
+    // 👇 请替换为您的实际 Bin ID 和 API Key（已内置，无需修改）
+    const JSONBIN_BIN_ID = '69f37038aaba88219757286c';
+    const JSONBIN_API_KEY = '$2a$10$P4yMa6EFV5rBU98ajof0j.rvYd/yUZpuyrP/m3Na5DYzDf87HaFEa';
     const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
-    const SYNC_INTERVAL_MS = 30 * 1000; // 30秒自动拉取
+    // 拉取间隔改为 600 秒（10分钟）
+    const SYNC_INTERVAL_MS = 600 * 1000;
 
     // ======================== localStorage 键名 ========================
     const STORAGE_USERS = 'hr_users';
@@ -307,7 +308,7 @@
 
     // ---------- 云端同步函数 ----------
     async function pullFromCloud() {
-        if (JSONBIN_BIN_ID === 'YOUR_BIN_ID') return;
+        if (JSONBIN_BIN_ID === '69f37038aaba88219757286c') return;
         try {
             const res = await fetch(JSONBIN_URL, { headers: { 'X-Master-Key': JSONBIN_API_KEY } });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -324,11 +325,12 @@
             }
         } catch (err) {
             console.error('[Cloud] 拉取失败', err);
+            showToast('同步失败，请检查网络', 2000);
         }
     }
 
     async function pushToCloud() {
-        if (JSONBIN_BIN_ID === 'YOUR_BIN_ID') return;
+        if (JSONBIN_BIN_ID === '69f37038aaba88219757286c') return;
         try {
             const allData = {
                 users: JSON.parse(localStorage.getItem(STORAGE_USERS) || '[]'),
@@ -346,17 +348,18 @@
             console.log('[Cloud] 上传成功');
         } catch (err) {
             console.error('[Cloud] 上传失败', err);
+            showToast('上传云端失败，请稍后重试', 2000);
         }
     }
 
     async function fullSync() {
-        if (JSONBIN_BIN_ID === 'YOUR_BIN_ID') {
+        if (JSONBIN_BIN_ID === '69f37038aaba88219757286c') {
             showToast('请先配置 JSONBin 凭证', 2000);
             return;
         }
         showToast('同步中...', 1000);
-        await pullFromCloud();
-        await pushToCloud();
+        await pushToCloud();   // 先上传本地
+        await pullFromCloud(); // 再拉取覆盖（确保最新）
     }
 
     // ---------- 合并远程数据 ----------
@@ -429,14 +432,14 @@
     let syncInterval = null;
     function startAutoSync() {
         if (syncInterval) clearInterval(syncInterval);
-        if (JSONBIN_BIN_ID !== 'YOUR_BIN_ID') {
+        if (JSONBIN_BIN_ID !== '69f37038aaba88219757286c') {
             syncInterval = setInterval(() => pullFromCloud(), SYNC_INTERVAL_MS);
         }
     }
 
     // ---------- 初始化本地存储（仅无数据时）----------
     async function initLocalData() {
-        if (JSONBIN_BIN_ID !== 'YOUR_BIN_ID') {
+        if (JSONBIN_BIN_ID !== '69f37038aaba88219757286c') {
             await pullFromCloud();
         }
         if (!localStorage.getItem(STORAGE_JOBS) || JSON.parse(localStorage.getItem(STORAGE_JOBS)).length === 0) {
@@ -456,7 +459,7 @@
             localStorage.setItem(STORAGE_ADMIN, JSON.stringify([{ username:'syadmin', password: btoa('syadmin995320'), role:'super' }]));
         }
         addTimestampsToAllData();
-        await pushToCloud();
+        await pushToCloud(); // 初始化后推送到云端
     }
 
     // ---------- Vue 实例 ----------
@@ -615,12 +618,15 @@
                 this.showRegister = false;
                 this.loginPhone = this.regPhone;
                 this.regPhone = this.regPassword = this.regConfirmPwd = this.regSecurityCode = '';
-                await pushToCloud();
+                // 关键修复：注册后立即执行全量同步，确保云端已保存
+                await fullSync();
             },
             async doLogin(){
                 const phoneRegex = /^1[3-9]\d{9}$/;
                 if(!phoneRegex.test(this.loginPhone)) return showToast('请输入正确的手机号');
                 if(!this.loginPassword) return showToast('请输入密码');
+                // 登录前先拉取最新云端数据
+                await pullFromCloud();
                 let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
                 let user = users.find(u => u.phone === this.loginPhone && atob(u.password) === this.loginPassword);
                 if(user){
@@ -631,8 +637,9 @@
                     this.loadResumeFromStorage();
                     showToast('登录成功');
                     this.loginPhone = this.loginPassword = '';
-                    await pullFromCloud();
-                } else showToast('手机号或密码错误');
+                } else {
+                    showToast('手机号或密码错误，请确认账号已注册且密码正确');
+                }
             },
             async doChangePwd(){
                 if(!this.currentPhone) return;
