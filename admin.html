@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>央派国际 - 人力资源后台管理</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, 'Inter', sans-serif; }
+        body { background: #e9ecef; padding: 20px; }
+        .admin-container { max-width: 1400px; margin: 0 auto; }
+        .card { background: white; border-radius: 28px; padding: 24px; margin-bottom: 24px; box-shadow: 0 6px 14px rgba(0,0,0,0.06); }
+        .login-box { max-width: 400px; margin: 80px auto; }
+        input, select, button { padding: 12px 16px; border-radius: 60px; border: 1px solid #cbd5e1; font-size: 0.9rem; }
+        button { background: #1e4a76; color: white; border: none; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 12px 8px; border-bottom: 1px solid #e2e8f0; }
+        th { background: #f1f5f9; }
+        .badge { background: #e6f7f0; color: #117f5a; padding: 4px 8px; border-radius: 30px; font-size: 0.7rem; }
+        .btn-sm { padding: 4px 12px; font-size: 0.7rem; margin: 0 4px; }
+        .btn-danger { background: #b91c1c; }
+        .flex-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: space-between; }
+        h2 { margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+<div id="adminApp">
+    <!-- 登录界面 -->
+    <div v-if="!isAdminLogin" class="login-box card">
+        <h2 style="text-align:center;">👔 人力资源后台登录</h2>
+        <div style="margin: 20px 0;">
+            <input type="text" placeholder="用户名" v-model="loginUsername" style="width:100%; margin-bottom: 12px;">
+            <input type="password" placeholder="密码" v-model="loginPassword" style="width:100%;">
+        </div>
+        <button @click="adminLogin" style="width:100%;">登录</button>
+        <div style="margin-top: 16px; font-size:0.7rem; color:#555; text-align:center;">最高管理员：syadmin / syadmin995320</div>
+    </div>
+
+    <!-- 管理后台主界面 -->
+    <div v-else class="admin-container">
+        <div class="card flex-row">
+            <h2>👩‍💼 后台管理控制台 | 欢迎，{{ currentAdmin.username }} ({{ currentAdmin.role === 'super' ? '超级管理员' : '普通管理员' }})</h2>
+            <button class="btn-sm" @click="logout">退出登录</button>
+        </div>
+
+        <!-- 管理员管理（仅超级管理员可见） -->
+        <div class="card" v-if="currentAdmin.role === 'super'">
+            <h3>🔐 普通管理员账号管理</h3>
+            <div class="flex-row" style="margin-bottom: 20px;">
+                <input type="text" placeholder="用户名" v-model="newAdminUser">
+                <input type="password" placeholder="密码" v-model="newAdminPwd">
+                <button @click="addAdmin">➕ 添加管理员</button>
+            </div>
+            <table>
+                <thead><tr><th>用户名</th><th>角色</th><th>操作</th></tr></thead>
+                <tbody>
+                    <tr v-for="(adm, idx) in adminList" :key="idx">
+                        <td>{{ adm.username }}</td><td>{{ adm.role === 'super' ? '超级管理员' : '普通管理员' }}</td>
+                        <td><button class="btn-sm btn-danger" v-if="adm.role !== 'super'" @click="deleteAdmin(adm.username)">删除</button></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- 求职者简历管理 -->
+        <div class="card">
+            <h3>📋 求职者简历库（供招聘方查看）</h3>
+            <input type="text" placeholder="搜索姓名/学校/意向..." v-model="searchKeyword" style="margin: 12px 0; width: 300px;">
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead><tr><th>微信昵称</th><th>真实姓名</th><th>性别</th><th>学历</th><th>毕业院校</th><th>意向岗位</th><th>联系方式(完整)</th><th>简历附件</th><th>操作</th></tr></thead>
+                    <tbody>
+                        <tr v-for="user in filteredUsers" :key="user.userId">
+                            <td>{{ user.nickname }}</td>
+                            <td>{{ user.resumeData?.name || '未填' }}</td>
+                            <td>{{ user.resumeData?.gender || '-' }}</td>
+                            <td>{{ user.resumeData?.education || '-' }}</td>
+                            <td>{{ user.resumeData?.school || '-' }}</td>
+                            <td>{{ user.resumeData?.intention || '-' }}</td>
+                            <td><span v-if="user.resumeData?.phone">{{ user.resumeData.phone }}<br>{{ user.resumeData.email }}</span><span v-else>未填写</span></td>
+                            <td><button v-if="user.resumeFile" class="btn-sm" @click="downloadResumeFile(user)">📄 下载简历</button><span v-else>无附件</span></td>
+                            <td><button class="btn-sm" @click="viewDetail(user)">查看完整档案</button></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 简历详情模态窗 -->
+    <div v-if="showDetailModal" style="position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:1000;">
+        <div style="background:white; max-width: 500px; width:90%; border-radius: 32px; padding: 24px; max-height: 80%; overflow: auto;">
+            <h3>👤 详细简历信息</h3>
+            <div><strong>姓名：</strong> {{ detailUser.resumeData?.name || '无' }}</div>
+            <div><strong>性别/出生：</strong> {{ detailUser.resumeData?.gender }} / {{ detailUser.resumeData?.birth }}</div>
+            <div><strong>电话：</strong> {{ detailUser.resumeData?.phone }} &nbsp; <strong>邮箱：</strong> {{ detailUser.resumeData?.email }}</div>
+            <div><strong>学历院校：</strong> {{ detailUser.resumeData?.education }} {{ detailUser.resumeData?.school }}</div>
+            <div><strong>工作经历：</strong><br> {{ detailUser.resumeData?.workExp || '无' }}</div>
+            <div><strong>技能证书：</strong> {{ detailUser.resumeData?.skills || '无' }}</div>
+            <div><strong>意向：</strong> {{ detailUser.resumeData?.intention }}</div>
+            <hr>
+            <button @click="showDetailModal=false" class="btn-sm" style="background:#1e4a76; color:white;">关闭</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+<script>
+    const STORAGE_ADMIN = 'hr_admin_accounts';
+    const STORAGE_USERS = 'hr_users';
+
+    // 初始化超级管理员
+    if(!localStorage.getItem(STORAGE_ADMIN)){
+        let superAdmin = [{ username: 'syadmin', password: btoa('syadmin995320'), role: 'super' }];
+        localStorage.setItem(STORAGE_ADMIN, JSON.stringify(superAdmin));
+    }
+
+    new Vue({
+        el: '#adminApp',
+        data: {
+            isAdminLogin: false,
+            currentAdmin: null,
+            loginUsername: '',
+            loginPassword: '',
+            adminList: [],
+            allUsers: [],
+            searchKeyword: '',
+            showDetailModal: false,
+            detailUser: {}
+        },
+        computed: {
+            filteredUsers() {
+                if(!this.searchKeyword) return this.allUsers;
+                let kw = this.searchKeyword.toLowerCase();
+                return this.allUsers.filter(u => 
+                    (u.resumeData?.name && u.resumeData.name.toLowerCase().includes(kw)) ||
+                    (u.resumeData?.school && u.resumeData.school.toLowerCase().includes(kw)) ||
+                    (u.resumeData?.intention && u.resumeData.intention.toLowerCase().includes(kw)) ||
+                    u.nickname.toLowerCase().includes(kw)
+                );
+            }
+        },
+        methods: {
+            adminLogin() {
+                let admins = JSON.parse(localStorage.getItem(STORAGE_ADMIN));
+                let found = admins.find(a => a.username === this.loginUsername && atob(a.password) === this.loginPassword);
+                if(found){
+                    this.isAdminLogin = true;
+                    this.currentAdmin = { username: found.username, role: found.role };
+                    this.loadAdminList();
+                    this.loadUsers();
+                } else {
+                    alert('用户名或密码错误');
+                }
+            },
+            loadAdminList() {
+                let admins = JSON.parse(localStorage.getItem(STORAGE_ADMIN));
+                this.adminList = admins;
+            },
+            loadUsers() {
+                let users = localStorage.getItem(STORAGE_USERS);
+                if(users) this.allUsers = JSON.parse(users);
+                else this.allUsers = [];
+            },
+            addAdmin() {
+                if(!this.newAdminUser || !this.newAdminPwd) { alert('请输入用户名密码'); return; }
+                let admins = JSON.parse(localStorage.getItem(STORAGE_ADMIN));
+                if(admins.find(a => a.username === this.newAdminUser)) { alert('用户名已存在'); return; }
+                admins.push({ username: this.newAdminUser, password: btoa(this.newAdminPwd), role: 'normal' });
+                localStorage.setItem(STORAGE_ADMIN, JSON.stringify(admins));
+                this.newAdminUser = ''; this.newAdminPwd = '';
+                this.loadAdminList();
+                alert('添加成功');
+            },
+            deleteAdmin(username){
+                let admins = JSON.parse(localStorage.getItem(STORAGE_ADMIN));
+                let newList = admins.filter(a => a.username !== username);
+                localStorage.setItem(STORAGE_ADMIN, JSON.stringify(newList));
+                this.loadAdminList();
+            },
+            downloadResumeFile(user){
+                if(user.resumeFile){
+                    let a = document.createElement('a');
+                    a.href = user.resumeFile;
+                    a.download = user.resumeFileName || 'resume_附件';
+                    a.click();
+                } else {
+                    alert('无附件');
+                }
+            },
+            viewDetail(user){
+                this.detailUser = user;
+                this.showDetailModal = true;
+            },
+            logout(){
+                this.isAdminLogin = false;
+                this.currentAdmin = null;
+                this.loginUsername = '';
+                this.loginPassword = '';
+            }
+        }
+    });
+</script>
+</body>
+</html>

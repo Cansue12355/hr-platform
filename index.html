@@ -2,188 +2,254 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>央派国际 | 外派留学·央企就业人力资源</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>央派国际 - 求职者中心</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', -apple-system, system-ui, sans-serif; background-color: #f8fafc; color: #0f172a; line-height: 1.4; -webkit-tap-highlight-color: transparent; }
-        .app-container { max-width: 450px; margin: 0 auto; background-color: #f8fafc; box-shadow: 0 0 20px rgba(0,0,0,0.05); min-height: 100vh; display: flex; flex-direction: column; position: relative; }
-        .main-content { flex: 1; overflow-y: auto; padding: 12px 16px 80px 16px; scroll-behavior: smooth; }
-        .main-content::-webkit-scrollbar { width: 4px; }
-        .main-content::-webkit-scrollbar-track { background: #e2e8f0; border-radius: 8px; }
-        .main-content::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 8px; }
-        .top-bar { background: white; padding: 12px 16px; border-bottom: 1px solid #eef2f6; position: sticky; top: 0; z-index: 10; backdrop-filter: blur(10px); background-color: rgba(255,255,255,0.96); }
-        .top-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
-        .logo-area h2 { font-size: 1.5rem; font-weight: 800; background: linear-gradient(135deg, #0c4a6e, #2b7a62); -webkit-background-clip: text; background-clip: text; color: transparent; letter-spacing: -0.3px; }
-        .logo-area span { font-size: 0.7rem; font-weight: 500; color: #2b7a62; margin-left: 4px; }
-        .action-icons i { font-size: 1.3rem; color: #334155; margin-left: 16px; background: #f1f5f9; padding: 6px; border-radius: 50%; }
-        .search-box { background: #f1f5f9; border-radius: 32px; padding: 10px 16px; display: flex; align-items: center; gap: 10px; color: #64748b; font-size: 0.85rem; cursor: pointer; }
-        .search-box i { font-size: 1rem; }
-        .banner { background: linear-gradient(145deg, #0f2b3d, #1a4c6e); border-radius: 28px; padding: 20px 18px; margin: 16px 0 20px; color: white; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 8px 18px rgba(0,0,0,0.08); cursor: pointer; }
-        .banner-text h3 { font-size: 1.2rem; font-weight: 700; margin-bottom: 6px; }
-        .banner-text p { font-size: 0.75rem; opacity: 0.85; }
-        .banner-btn { background: rgba(255,255,255,0.2); backdrop-filter: blur(2px); border-radius: 40px; padding: 8px 16px; font-size: 0.7rem; font-weight: 600; }
-        .grid-menu { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 28px; }
-        .grid-item { background: white; flex: 1; text-align: center; padding: 12px 0; border-radius: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); border: 1px solid #eef2f8; cursor: pointer; transition: 0.2s; }
-        .grid-item i { font-size: 1.8rem; color: #1e4a76; margin-bottom: 6px; display: block; }
-        .grid-item span { font-size: 0.7rem; font-weight: 500; color: #1e293b; }
-        .grid-item:active { transform: scale(0.96); }
-        .section-header { display: flex; justify-content: space-between; align-items: baseline; margin: 16px 0 12px; }
-        .section-header h4 { font-size: 1.1rem; font-weight: 700; color: #0c4a6e; }
-        .section-header a { font-size: 0.7rem; color: #2b7a62; text-decoration: none; cursor: pointer; }
-        .job-card { background: white; border-radius: 24px; padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); border: 1px solid #eef2f8; cursor: pointer; transition: 0.2s; }
-        .job-card:active { transform: scale(0.99); }
-        .job-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
-        .job-title { font-weight: 800; font-size: 1rem; }
-        .tag { background: #e6f7f0; color: #1f6e5c; border-radius: 30px; padding: 4px 10px; font-size: 0.6rem; font-weight: 600; }
-        .tag.blue { background: #e9f0fa; color: #1e4a76; }
-        .company { font-size: 0.75rem; color: #475569; margin: 6px 0; display: flex; align-items: center; gap: 8px; }
-        .info-row { display: flex; flex-wrap: wrap; gap: 12px; margin: 10px 0 12px 0; font-size: 0.7rem; color: #5b6e8c; }
-        .info-row i { width: 18px; color: #2b7a62; }
-        .salary { font-weight: 700; color: #1f6e5c; }
-        .apply-small-btn { background: #f1f5f9; border-radius: 30px; padding: 6px 16px; font-size: 0.7rem; font-weight: 600; color: #1e4a76; border: none; float: right; cursor: pointer; }
-        .service-card-v2 { background: linear-gradient(120deg, #eefcff, #fff9ef); border-radius: 24px; padding: 16px; margin: 20px 0; display: flex; align-items: center; justify-content: space-between; border: 1px solid #cbdcec; cursor: pointer; }
-        .service-text h4 { font-size: 0.9rem; font-weight: 700; }
-        .bottom-tabbar { position: fixed; bottom: 0; left: 0; right: 0; max-width: 450px; margin: 0 auto; background: rgba(255,255,255,0.96); backdrop-filter: blur(10px); display: flex; justify-content: space-around; align-items: center; padding: 8px 12px 20px; border-top: 1px solid #eef2f8; box-shadow: 0 -4px 12px rgba(0,0,0,0.02); }
-        .tab-item { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 0.7rem; color: #7e8b9c; cursor: pointer; }
-        .tab-item i { font-size: 1.5rem; }
-        .tab-item.active { color: #1e4a76; font-weight: 600; }
-        .toast-msg { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 8px 20px; border-radius: 40px; font-size: 0.75rem; z-index: 200; max-width: 85%; text-align: center; pointer-events: none; }
-        .clearfix::after { content: ""; clear: both; display: table; }
-        .text-small { font-size: 0.7rem; }
-        button, .grid-item, .job-card, .banner-btn, .apply-small-btn, .tab-item { cursor: pointer; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: system-ui, -apple-system, 'Inter', sans-serif; }
+        body { background: #f0f2f5; padding: 16px; }
+        .container { max-width: 650px; margin: 0 auto; }
+        .card { background: white; border-radius: 28px; padding: 24px 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .btn { background: #1e4a76; color: white; border: none; padding: 10px 18px; border-radius: 40px; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+        .btn-outline { background: white; border: 1px solid #1e4a76; color: #1e4a76; }
+        .btn-danger { background: #dc2626; }
+        .form-group { margin-bottom: 18px; }
+        label { font-weight: 600; display: block; margin-bottom: 6px; color: #0f172a; font-size: 0.85rem; }
+        input, textarea, select { width: 100%; padding: 12px 14px; border: 1px solid #cfdde6; border-radius: 20px; font-size: 0.9rem; background: #fff; }
+        textarea { min-height: 80px; resize: vertical; }
+        .wechat-login { background: #07c160; color: white; border: none; padding: 12px; border-radius: 60px; font-weight: 700; width: 100%; font-size: 1rem; cursor: pointer; }
+        .flex-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+        .avatar { width: 56px; height: 56px; background: #e2e8f0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; }
+        .resume-preview { background: #f8fafc; border-radius: 20px; padding: 12px; margin-top: 12px; }
+        .tag { background: #eef2ff; padding: 4px 8px; border-radius: 30px; font-size: 0.7rem; }
+        hr { margin: 16px 0; }
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1f2937; color: white; padding: 8px 20px; border-radius: 40px; font-size: 0.8rem; z-index: 1000; }
     </style>
 </head>
 <body>
-<div class="app-container">
-    <div class="top-bar">
-        <div class="top-row">
-            <div class="logo-area"><h2>CENEX HR<span>·央派国际</span></h2></div>
-            <div class="action-icons"><i class="far fa-bell"></i><i class="far fa-comment-dots"></i></div>
-        </div>
-        <div class="search-box" id="searchTrigger"><i class="fas fa-search"></i><span>搜索央企外派职位、留学生通道...</span></div>
+<div class="container" id="app">
+    <!-- 未登录状态 -->
+    <div v-if="!isLogin" class="card" style="text-align: center;">
+        <i class="fas fa-weixin" style="font-size: 3rem; color: #07c160; margin-bottom: 12px;"></i>
+        <h2>欢迎来到央派国际</h2>
+        <p style="color: #475569; margin: 8px 0 20px;">海量央企外派职位 · 留学生专属通道</p>
+        <button class="wechat-login" @click="mockWechatLogin">🔑 微信一键登录（模拟授权）</button>
+        <div style="margin-top: 24px; font-size: 0.7rem; color: #6c7a8f;">点击即表示同意《用户协议》及隐私政策</div>
     </div>
-    <div class="main-content" id="mainContent">
-        <div class="banner" id="bannerCta">
-            <div class="banner-text"><h3>🌍 全球外派 · 央企直通车</h3><p>留学生专场 | 海外高薪项目 | 人才落户补贴</p></div>
-            <div class="banner-btn">立即报名 <i class="fas fa-arrow-right"></i></div>
-        </div>
-        <div class="grid-menu">
-            <div class="grid-item" data-type="expat"><i class="fas fa-plane-up"></i><span>外派职位</span></div>
-            <div class="grid-item" data-type="returnee"><i class="fas fa-graduation-cap"></i><span>留学生通道</span></div>
-            <div class="grid-item" data-type="central"><i class="fas fa-building"></i><span>央企内推</span></div>
-            <div class="grid-item" data-type="consult"><i class="fas fa-chalkboard-user"></i><span>HR咨询</span></div>
-        </div>
-        <div class="section-header"><h4><i class="fas fa-star" style="color:#f5b042"></i> 热门推荐 · 外派&央企优选</h4><a href="#" id="moreJobsLink">更多职位 <i class="fas fa-chevron-right"></i></a></div>
-        <div id="jobListContainer">
-            <div class="job-card" data-jobid="101">
-                <div class="job-header"><div class="job-title">海外工程项目经理</div><div class="tag">🌏 外派 · 央企直招</div></div>
-                <div class="company"><i class="fas fa-building"></i> 中国交通建设集团 · 国际事业部</div>
-                <div class="info-row"><span><i class="fas fa-map-marker-alt"></i> 沙特 / 印尼</span><span><i class="fas fa-clock"></i> 外派周期3年</span><span class="salary"><i class="fas fa-dollar-sign"></i> 65-85w/年</span></div>
-                <div class="info-row"><span><i class="fas fa-language"></i> 英语/阿语优先</span><span><i class="fas fa-umbrella-beach"></i> 每年4次探亲假</span></div>
-                <button class="apply-small-btn">立即申请 <i class="fas fa-arrow-right"></i></button><div class="clearfix"></div>
+
+    <!-- 已登录 简历管理 -->
+    <div v-else>
+        <div class="card">
+            <div class="flex-row">
+                <div class="avatar"><i class="fas fa-user-circle"></i></div>
+                <div><strong>{{ userInfo.nickname || '求职者' }}</strong><br><span class="tag">微信用户</span></div>
+                <button class="btn btn-outline" style="padding: 6px 14px;" @click="logout">退出登录</button>
             </div>
-            <div class="job-card" data-jobid="102">
-                <div class="job-header"><div class="job-title">留学生全球管培生 (外派轮岗)</div><div class="tag blue">🎓 留学生专属 · 快速晋升</div></div>
-                <div class="company"><i class="fas fa-chart-line"></i> 中国五矿集团 · 国际化储备</div>
-                <div class="info-row"><span><i class="fas fa-map-marker-alt"></i> 北京/新加坡/伦敦</span><span><i class="fas fa-graduation-cap"></i> 毕业2年内均可</span><span class="salary"><i class="fas fa-trophy"></i> 年薪30w+ 外派津贴</span></div>
-                <div class="info-row"><span><i class="fas fa-check-circle"></i> 解决北上广户口</span><span><i class="fas fa-globe"></i> 海外轮岗6-12个月</span></div>
-                <button class="apply-small-btn">简历直投</button><div class="clearfix"></div>
-            </div>
-            <div class="job-card" data-jobid="103">
-                <div class="job-header"><div class="job-title">海外投融资分析师 (资深)</div><div class="tag">🌟 金融央企 · 外派储备</div></div>
-                <div class="company"><i class="fas fa-university"></i> 中金公司/中信集团联合项目</div>
-                <div class="info-row"><span><i class="fas fa-map-marker-alt"></i> 香港 / 迪拜</span><span><i class="fas fa-briefcase"></i> 3年+经验优先</span><span class="salary">年薪70-100w</span></div>
-                <button class="apply-small-btn">优先面试</button><div class="clearfix"></div>
+            <div style="margin-top: 16px; background: #eef2ff; border-radius: 20px; padding: 8px 12px; font-size: 0.75rem;">
+                <i class="fas fa-id-card"></i> 简历完善度：{{ profileComplete }}% ，招聘方可查看您的公开信息
             </div>
         </div>
-        <div class="service-card-v2" id="overseasService">
-            <div class="service-text"><h4><i class="fas fa-handshake"></i> 留学生归国就业绿色通道</h4><p class="text-small mt-1">央企联合校招+落户指导+外派岗前培训，1v1职涯规划</p></div>
-            <i class="fas fa-chevron-right" style="color:#2b7a62;"></i>
+
+        <!-- 简历表单模板 -->
+        <div class="card">
+            <h3 style="margin-bottom: 12px;">📄 个人档案（简历模板）</h3>
+            <div class="form-group">
+                <label>真实姓名</label>
+                <input v-model="resume.name" placeholder="例：张华">
+            </div>
+            <div class="flex-row">
+                <div class="form-group" style="flex:1"><label>性别</label><select v-model="resume.gender"><option>男</option><option>女</option></select></div>
+                <div class="form-group" style="flex:1"><label>出生年月</label><input type="month" v-model="resume.birth"></div>
+            </div>
+            <div class="form-group"><label>联系电话（招聘方可见）</label><input v-model="resume.phone" placeholder="手机号"></div>
+            <div class="form-group"><label>电子邮箱</label><input v-model="resume.email" placeholder="邮箱"></div>
+            <div class="form-group"><label>最高学历</label><input v-model="resume.education" placeholder="本科/硕士/博士"></div>
+            <div class="form-group"><label>毕业院校 & 专业</label><input v-model="resume.school" placeholder="学校 - 专业"></div>
+            <div class="form-group"><label>工作/实习经历</label><textarea v-model="resume.workExp" placeholder="描述相关经验..."></textarea></div>
+            <div class="form-group"><label>技能证书 / 语言能力</label><textarea v-model="resume.skills" placeholder="如：PMP, 雅思7.0, CFA一级"></textarea></div>
+            <div class="form-group"><label>意向岗位 / 外派地区</label><input v-model="resume.intention" placeholder="海外工程项目经理 / 东南亚"></div>
+            <div class="flex-row">
+                <button class="btn" @click="saveResumeTemplate">💾 保存简历模板</button>
+                <button class="btn btn-outline" @click="resetForm">重置</button>
+            </div>
         </div>
-        <div class="section-header"><h4><i class="fas fa-headset"></i> 外派·人力资源增值服务</h4></div>
-        <div style="display: flex; gap: 12px; margin-bottom: 20px;">
-            <div style="background: white; flex:1; border-radius: 20px; padding: 14px; text-align: center;"><i class="fas fa-passport" style="font-size: 1.6rem; color:#1e4a76;"></i><p style="font-weight:600; font-size:0.7rem;">签证/工作许可<br>一站式代办</p></div>
-            <div style="background: white; flex:1; border-radius: 20px; padding: 14px; text-align: center;"><i class="fas fa-chalkboard" style="font-size: 1.6rem; color:#1e4a76;"></i><p style="font-weight:600; font-size:0.7rem;">跨文化培训<br>外派适应课程</p></div>
-            <div style="background: white; flex:1; border-radius: 20px; padding: 14px; text-align: center;"><i class="fas fa-file-signature" style="font-size: 1.6rem; color:#1e4a76;"></i><p style="font-weight:600; font-size:0.7rem;">薪酬个税优化<br>外派保险方案</p></div>
+
+        <!-- 上传简历文件（PDF/Word）-->
+        <div class="card">
+            <h3>📎 上传简历附件（招聘方可下载）</h3>
+            <div class="flex-row" style="margin: 12px 0;">
+                <input type="file" id="resumeFile" accept=".pdf,.doc,.docx" style="flex:1; border:1px solid #cfdde6; border-radius:40px; padding:6px;">
+                <button class="btn" @click="uploadResumeFile">上传并保存</button>
+            </div>
+            <div v-if="resumeFileName" class="resume-preview">
+                <i class="fas fa-file-alt"></i> 已上传文件：{{ resumeFileName }}
+                <a href="#" @click.prevent="downloadResume" style="margin-left: 12px; color:#1e4a76;">📥 下载</a>
+            </div>
+            <p class="tag" style="margin-top: 8px;">支持 .pdf .doc .docx，最大10MB（本地存储）</p>
         </div>
-        <div style="height: 4px;"></div>
-    </div>
-    <div class="bottom-tabbar">
-        <div class="tab-item active" data-tab="home"><i class="fas fa-home"></i><span>首页</span></div>
-        <div class="tab-item" data-tab="jobs"><i class="fas fa-briefcase"></i><span>职位</span></div>
-        <div class="tab-item" data-tab="message"><i class="far fa-comment"></i><span>消息</span></div>
-        <div class="tab-item" data-tab="profile"><i class="far fa-user"></i><span>我的</span></div>
+
+        <!-- 简历预览供招聘方视角 -->
+        <div class="card">
+            <h3>👀 招聘方可查看的信息</h3>
+            <div style="background: #f1f5f9; border-radius: 20px; padding: 12px; margin-top: 8px;">
+                <div><strong>{{ resume.name || '未填写' }}</strong> <span class="tag">{{ resume.gender }} {{ resume.birth }}</span></div>
+                <div>📞 {{ resume.phone ? resume.phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') : '未填写' }} | ✉️ {{ resume.email?.substring(0,3) || '' }}***</div>
+                <div>🎓 {{ resume.education }} · {{ resume.school }}</div>
+                <div>💼 {{ resume.workExp?.substring(0, 60) }}{{ resume.workExp?.length >60 ? '…' : '' }}</div>
+                <div>🌍 意向：{{ resume.intention || '不限' }}</div>
+            </div>
+            <p class="tag" style="margin-top: 12px;">* 联系方式对招聘方部分隐藏，后台可查看完整信息</p>
+        </div>
     </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+<script src="https://kit.fontawesome.com/a2b8f7f6b2.js" crossorigin="anonymous"></script>
 <script>
-    function showToast(msg, duration=2000){
-        let old=document.querySelector('.toast-msg'); if(old) old.remove();
-        let toast=document.createElement('div'); toast.className='toast-msg'; toast.innerText=msg;
-        document.body.appendChild(toast);
-        setTimeout(()=>{ toast.style.opacity='0'; setTimeout(()=>toast.remove(),300); }, duration);
+    // 存储key
+    const STORAGE_USERS = 'hr_users'; // 求职者列表
+    const STORAGE_CUR_USER = 'hr_current_user';
+
+    function showToast(msg) {
+        let t = document.createElement('div'); t.className = 'toast'; t.innerText = msg; document.body.appendChild(t);
+        setTimeout(() => t.remove(), 2000);
     }
-    function reattachEvents(){
-        document.querySelectorAll('.grid-item').forEach(el=>{
-            el.onclick=()=>{
-                let t=el.getAttribute('data-type');
-                if(t==='expat') showToast('🌍 外派职位专区开放中：基建、能源、金融类60+岗位，境外补贴丰厚');
-                else if(t==='returnee') showToast('🎓 留学生绿色通道：央企2026届海外专场，简历优先筛选，落户咨询一键预约');
-                else if(t==='central') showToast('🏢 央企内推合作伙伴：中石油/中建/国家电投等；上传简历直达HR');
-                else if(t==='consult') showToast('📞 人力资源专家1v1: 外派生涯规划、留学生就业评估，请致电400-882-6688');
-                else showToast('功能即将开放');
-            };
-        });
-        document.querySelectorAll('.apply-small-btn').forEach(btn=>{
-            btn.onclick=(e)=>{
-                e.stopPropagation();
-                let card=btn.closest('.job-card');
-                let title=card?.querySelector('.job-title')?.innerText||'该职位';
-                showToast(`✨ 已提交申请意向：${title}，央企HR将在24h内联系您。`);
-            };
-        });
-        document.querySelectorAll('.job-card').forEach(card=>{
-            card.onclick=(e)=>{ if(e.target.tagName!=='BUTTON') showToast('📄 职位详情 | 查看岗位要求、外派福利及留学生加分政策'); };
-        });
-        let banner=document.getElementById('bannerCta'); if(banner) banner.onclick=()=>showToast('📢 “全球外派招聘周” 4月30日线上宣讲会，央企人力总监面对面');
-        let service=document.getElementById('overseasService'); if(service) service.onclick=()=>showToast('🎯 留学生专属服务：简历优化+央企模拟面试+留学生落户政策解读');
-        let search=document.getElementById('searchTrigger'); if(search) search.onclick=()=>showToast('🔍 支持搜索“外派经理”、“留学生管培”、“央企财务”等职位，海量优质岗');
-        let more=document.getElementById('moreJobsLink'); if(more) more.onclick=(e)=>{ e.preventDefault(); showToast('📋 查看更多央企外派职位及留学生专场: 已发布300+岗位，持续更新中'); };
+
+    // 初始化存储
+    if(!localStorage.getItem(STORAGE_USERS)){
+        localStorage.setItem(STORAGE_USERS, JSON.stringify([]));
     }
-    let originalHTML = document.getElementById('mainContent').innerHTML;
-    document.querySelectorAll('.tab-item').forEach(tab=>{
-        tab.onclick=()=>{
-            document.querySelectorAll('.tab-item').forEach(t=>t.classList.remove('active'));
-            tab.classList.add('active');
-            let val=tab.getAttribute('data-tab');
-            let main=document.getElementById('mainContent');
-            if(val==='home'){ main.innerHTML=originalHTML; reattachEvents(); showToast('🏠 首页 | 外派留学央企就业人力平台'); }
-            else if(val==='jobs'){
-                main.innerHTML=`<div style="padding:20px 0; text-align:center;"><i class="fas fa-briefcase" style="font-size:3rem; color:#1e4a76;"></i><h4 style="margin:12px 0;">全部职位 (央企外派/留学生通道)</h4>
-                <div class="job-card"><div class="job-title">海外财务经理</div><div class="company">中国电建 · 国际公司</div><div class="info-row"><span>💰 年薪45-65w + 驻外补贴</span></div><button class="apply-small-btn">申请职位</button></div>
-                <div class="job-card"><div class="job-title">留学生科技创新管培生</div><div class="company">中国电子科技集团</div><div class="info-row"><span>🎓 仅限QS前200海外硕士，解决京户</span></div><button class="apply-small-btn">快速投递</button></div>
-                <p style="font-size:0.7rem; color:#6c7a8f; margin-top:20px;">—— 上滑浏览更多央企外派职位  ——</p></div>`;
-                document.querySelectorAll('.apply-small-btn').forEach(btn=>btn.onclick=()=>showToast('📎 已提交意向，人才顾问将主动联系'));
-                showToast('📌 央企优质外派&留学生优先职位，共124个在招');
+
+    const vm = new Vue({
+        el: '#app',
+        data: {
+            isLogin: false,
+            userId: null,
+            userInfo: {},
+            resume: {
+                name: '', gender: '男', birth: '', phone: '', email: '', education: '', school: '', workExp: '', skills: '', intention: ''
+            },
+            resumeFileBase64: null,
+            resumeFileName: ''
+        },
+        computed: {
+            profileComplete() {
+                let fields = ['name','phone','email','education','school','workExp'];
+                let filled = fields.filter(f => this.resume[f] && this.resume[f].trim() !== '').length;
+                return Math.floor((filled / fields.length) * 100);
             }
-            else if(val==='message'){
-                main.innerHTML=`<div style="text-align:center; margin-top:80px;"><i class="far fa-comment-dots" style="font-size:3rem; color:#b9c3d0;"></i><p style="margin:16px;">消息中心 · 面试邀约与投递反馈</p>
-                <div style="background:#f1f5f9; border-radius:20px; padding:12px;"><p><i class="fas fa-check-circle" style="color:#2b7a62;"></i> 您关注的“海外工程岗”有新进展</p><p><i class="fas fa-envelope"></i> 留学生专场: 中建集团HR查看您的简历</p></div>
-                <button class="apply-small-btn" style="margin-top:24px;">联系HR助手</button></div>`;
-                let msgBtn=document.querySelector('#mainContent .apply-small-btn'); if(msgBtn) msgBtn.onclick=()=>showToast('专属人力顾问正在在线，回复时间 < 5分钟');
-                showToast('💬 未读消息: 邀请参加外派岗前分享会');
+        },
+        mounted() {
+            this.checkLogin();
+        },
+        methods: {
+            checkLogin() {
+                let saved = localStorage.getItem(STORAGE_CUR_USER);
+                if(saved){
+                    let user = JSON.parse(saved);
+                    this.userId = user.userId;
+                    this.userInfo = { nickname: user.nickname };
+                    this.isLogin = true;
+                    this.loadUserResume(user.userId);
+                } else {
+                    this.isLogin = false;
+                }
+            },
+            mockWechatLogin() {
+                // 模拟微信授权，生成唯一ID
+                let openid = 'wx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+                let nickname = '求职者_' + Math.floor(Math.random()*1000);
+                let newUser = {
+                    userId: openid,
+                    openid: openid,
+                    nickname: nickname,
+                    avatar: '',
+                    resumeData: null,
+                    resumeFile: null,
+                    resumeFileName: '',
+                    createTime: new Date().toISOString()
+                };
+                let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
+                users.push(newUser);
+                localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
+                localStorage.setItem(STORAGE_CUR_USER, JSON.stringify({ userId: openid, nickname: nickname }));
+                this.userId = openid;
+                this.userInfo = { nickname: nickname };
+                this.isLogin = true;
+                // 初始化空白简历
+                this.resume = { name: '', gender: '男', birth: '', phone: '', email: '', education: '', school: '', workExp: '', skills: '', intention: '' };
+                this.resumeFileBase64 = null;
+                this.resumeFileName = '';
+                this.saveResumeTemplate(true); // 初始保存
+                showToast('微信授权登录成功');
+            },
+            loadUserResume(userId){
+                let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
+                let user = users.find(u => u.userId === userId);
+                if(user && user.resumeData){
+                    this.resume = { ...this.resume, ...user.resumeData };
+                } else {
+                    this.resume = { name: '', gender: '男', birth: '', phone: '', email: '', education: '', school: '', workExp: '', skills: '', intention: '' };
+                }
+                if(user && user.resumeFile){
+                    this.resumeFileBase64 = user.resumeFile;
+                    this.resumeFileName = user.resumeFileName || 'resume_uploaded';
+                } else {
+                    this.resumeFileBase64 = null;
+                    this.resumeFileName = '';
+                }
+            },
+            saveResumeTemplate(isInit=false){
+                if(!this.userId) return;
+                let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
+                let index = users.findIndex(u => u.userId === this.userId);
+                if(index !== -1){
+                    users[index].resumeData = JSON.parse(JSON.stringify(this.resume));
+                    localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
+                    if(!isInit) showToast('简历模板已保存');
+                } else {
+                    showToast('用户异常，请重新登录');
+                }
+            },
+            uploadResumeFile(){
+                let fileInput = document.querySelector('#resumeFile');
+                let file = fileInput.files[0];
+                if(!file){ showToast('请选择文件'); return; }
+                if(file.size > 10*1024*1024){ showToast('文件不超过10MB'); return; }
+                let reader = new FileReader();
+                reader.onload = (e) => {
+                    let base64 = e.target.result;
+                    this.resumeFileBase64 = base64;
+                    this.resumeFileName = file.name;
+                    // 保存到用户数据
+                    let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
+                    let index = users.findIndex(u => u.userId === this.userId);
+                    if(index !== -1){
+                        users[index].resumeFile = base64;
+                        users[index].resumeFileName = file.name;
+                        localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
+                        showToast('简历附件上传成功');
+                    }
+                };
+                reader.readAsDataURL(file);
+            },
+            downloadResume(){
+                if(!this.resumeFileBase64) { showToast('没有上传文件'); return; }
+                let a = document.createElement('a');
+                a.href = this.resumeFileBase64;
+                a.download = this.resumeFileName || 'resume.pdf';
+                a.click();
+            },
+            resetForm(){
+                this.resume = { name: '', gender: '男', birth: '', phone: '', email: '', education: '', school: '', workExp: '', skills: '', intention: '' };
+                this.saveResumeTemplate();
+            },
+            logout(){
+                localStorage.removeItem(STORAGE_CUR_USER);
+                this.isLogin = false;
+                showToast('已退出登录');
             }
-            else if(val==='profile'){
-                main.innerHTML=`<div style="text-align:center; margin:30px 0;"><i class="fas fa-user-circle" style="font-size:4rem; color:#1e4a76;"></i><h4>人才档案 · 完善简历提升央企直推率</h4>
-                <div style="background:white; border-radius:24px; padding:20px; margin:20px 0;"><p><i class="fas fa-check-circle"></i> 留学生认证通道已开启</p><p><i class="fas fa-chart-line"></i> 外派测评: 跨文化适应性评估</p><button class="apply-small-btn" id="profileCta">立即完善信息</button></div></div>`;
-                let pbtn=document.getElementById('profileCta'); if(pbtn) pbtn.onclick=()=>showToast('📋 完善简历，央企HR优先查看，精准推送外派/留学岗位');
-                showToast('👤 我的页面: 可查看投递记录 & 外派人才认证');
-            }
-        };
+        }
     });
-    reattachEvents();
 </script>
 </body>
 </html>
