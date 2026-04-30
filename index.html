@@ -30,13 +30,15 @@
         .consult-btn { background: #e6f7ec; color: #2b7a62; margin-left: 8px; }
         .admin-float { position: fixed; bottom: 80px; right: 16px; background: #1e4a76; color: white; width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.2); cursor: pointer; z-index: 30; font-size: 1.4rem; }
         .modal-mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px); }
-        .modal-box { background: white; max-width: 400px; width: 90%; border-radius: 32px; padding: 24px; max-height: 80%; overflow-y: auto; }
+        .modal-box { background: white; max-width: 500px; width: 90%; border-radius: 32px; padding: 24px; max-height: 80%; overflow-y: auto; }
         input, textarea, select { width: 100%; padding: 12px; border: 1px solid #cfdde6; border-radius: 40px; font-size: 0.9rem; margin-bottom: 12px; }
         .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: #1f2937; color: white; padding: 6px 18px; border-radius: 40px; font-size: 0.75rem; z-index: 1000; white-space: nowrap; }
         hr { margin: 12px 0; }
         .msg-item { border-bottom: 1px solid #eef2f8; padding: 12px 0; }
         .danger-btn { background: #dc2626; color: white; border: none; border-radius: 30px; padding: 4px 12px; cursor: pointer; }
         .link-btn { background: none; border: none; color: #1e4a76; cursor: pointer; text-decoration: underline; margin-top: 8px; }
+        .sticky-badge { background: #f59e0b; color: white; margin-left: 6px; }
+        .heat-number { font-size: 0.7rem; color: #6c7a8f; margin-left: 8px; }
     </style>
 </head>
 <body>
@@ -53,33 +55,54 @@
                 <div class="grid-item" @click="quickTip('央企内推直达HR')"><i class="fas fa-building"></i><span>央企内推</span></div>
                 <div class="grid-item" @click="quickTip('咨询热线400-882-6688')"><i class="fas fa-headset"></i><span>HR咨询</span></div>
             </div>
-            <div class="flex"><h4>🔥 热门推荐职位</h4><span style="font-size:0.7rem; color:#2b7a62;" @click="currentView='jobs'">更多 ></span></div>
+            <div class="flex"><h4>🔥 热门推荐职位（热度前20 · 置顶优先）</h4></div>
             <div v-for="job in hotJobs" :key="job.id" class="job-card">
-                <div class="flex"><strong>{{ job.title }}</strong><span class="tag">{{ job.tag }}</span></div>
+                <div class="flex">
+                    <strong>{{ job.title }}</strong>
+                    <div>
+                        <span class="tag">{{ job.tag }}</span>
+                        <span v-if="job.sticky" class="tag sticky-badge">置顶</span>
+                    </div>
+                </div>
                 <div style="font-size:0.75rem;">{{ job.company }}</div>
                 <div class="flex"><span><i class="fas fa-map-marker-alt"></i> {{ job.location }}</span><span class="tag" style="background:#e6f7e6;">{{ job.salary }}</span></div>
                 <div class="flex" style="margin-top: 8px;">
                     <button class="apply-btn" @click.stop="applyJob(job)">立即申请</button>
                     <button class="consult-btn" @click.stop="openConsult(job)">💬 咨询HR</button>
+                    <span class="heat-number"><i class="fas fa-fire"></i> {{ job.heat || 0 }}</span>
                 </div>
             </div>
+            <div v-if="hotJobs.length === 0" style="text-align:center; padding:30px;">暂无招聘信息</div>
         </div>
 
-        <!-- 职位列表 -->
+        <!-- 职位列表 - 带分类下拉菜单（基于tag字段） -->
         <div v-if="currentView === 'jobs'">
-            <div class="flex"><h4><i class="fas fa-briefcase"></i> 全部央企外派岗</h4><input type="text" placeholder="搜索职位" v-model="jobKeyword" style="width:150px;"></div>
-            <div v-for="job in filteredJobs" :key="job.id" class="job-card">
+            <div class="flex">
+                <h4><i class="fas fa-briefcase"></i> 职位分类</h4>
+                <select v-model="selectedCategory" style="width:auto; padding:6px 12px; border-radius:40px;">
+                    <option value="all">全部</option>
+                    <option value="出国外派">出国外派</option>
+                    <option value="外雇打工">外雇打工</option>
+                    <option value="留学打工">留学打工</option>
+                    <option value="留学升学历">留学升学历</option>
+                    <option value="央国企内推">央国企内推</option>
+                    <option value="央国企就业指导">央国企就业指导</option>
+                </select>
+                <input type="text" placeholder="搜索职位" v-model="jobKeyword" style="width:150px;">
+            </div>
+            <div v-for="job in filteredJobsByCategory" :key="job.id" class="job-card">
                 <div class="flex"><strong>{{ job.title }}</strong><span class="tag">{{ job.tag }}</span></div>
                 <div>{{ job.company }} · {{ job.location }}</div>
-                <div class="flex"><span>💰 {{ job.salary }}</span></div>
+                <div class="flex"><span>💰 {{ job.salary }}</span><span class="heat-number"><i class="fas fa-fire"></i> {{ job.heat || 0 }}</span></div>
                 <div class="flex" style="margin-top: 8px;">
                     <button class="apply-btn" @click="applyJob(job)">投递简历</button>
                     <button class="consult-btn" @click="openConsult(job)">💬 咨询HR</button>
                 </div>
             </div>
+            <div v-if="filteredJobsByCategory.length === 0" style="text-align:center; padding:40px;">暂无匹配职位</div>
         </div>
 
-        <!-- 消息（求职者自己的留言反馈，仅展示自己的咨询消息及回复） -->
+        <!-- 消息（求职者自己的留言反馈） -->
         <div v-if="currentView === 'message'">
             <div class="card">
                 <h4>📬 我的咨询记录 (HR回复可见)</h4>
@@ -158,7 +181,7 @@
         <i class="fas fa-crown"></i>
     </div>
 
-    <!-- 管理员后台模态框（无最高管理员明文提示） -->
+    <!-- 管理员后台模态框（超级管理员可修改热度/置顶） -->
     <div v-if="showAdminDialog" class="modal-mask" @click.self="showAdminDialog=false">
         <div class="modal-box">
             <div v-if="!adminLogged">
@@ -180,20 +203,32 @@
                     </div>
                     <hr>
                 </div>
-                <!-- 职位管理 -->
+                <!-- 职位管理（支持超级管理员修改热度/置顶） -->
                 <h4>📌 职位管理</h4>
                 <div v-if="adminRole === 'super' || adminRole === 'normal'">
                     <div class="flex"><input placeholder="职位名称" v-model="newJob.title"><input placeholder="公司" v-model="newJob.company"></div>
                     <div class="flex"><input placeholder="地点" v-model="newJob.location"><input placeholder="薪资" v-model="newJob.salary"></div>
-                    <select v-model="newJob.tag"><option>外派·央企直招</option><option>留学生专属</option><option>急聘</option></select>
+                    <!-- 统一使用六个分类的下拉，替换之前的tag和category -->
+                    <select v-model="newJob.tag">
+                        <option>出国外派</option><option>外雇打工</option><option>留学打工</option>
+                        <option>留学升学历</option><option>央国企内推</option><option>央国企就业指导</option>
+                    </select>
                     <button class="btn" style="width:100%; margin-bottom:12px;" @click="publishJob">发布职位</button>
                 </div>
-                <div v-for="job in (adminRole === 'super' ? allJobs : myOwnJobs)" :key="job.id" class="flex" style="border-bottom:1px solid #eee; padding:8px 0;">
-                    <span>{{ job.title }} - {{ job.company }}</span>
-                    <button class="btn-outline btn-sm" @click="deleteJob(job.id)">删除</button>
+                <div v-for="job in (adminRole === 'super' ? allJobs : myOwnJobs)" :key="job.id" class="card" style="margin-bottom:12px;">
+                    <div class="flex"><strong>{{ job.title }}</strong> (热度:{{ job.heat || 0 }}) <span v-if="job.sticky" class="tag sticky-badge">置顶</span></div>
+                    <div>公司: {{ job.company }} | 分类: {{ job.tag || '未分类' }}</div>
+                    <div class="flex" v-if="adminRole === 'super'">
+                        <div><label>热度: <input type="number" v-model.number="job.heat" style="width:70px; margin:0;"></label></div>
+                        <div><label>置顶: <input type="checkbox" v-model="job.sticky"></label></div>
+                        <button class="btn-sm" @click="updateJobHeatSticky(job)">保存修改</button>
+                        <button class="danger-btn btn-sm" @click="deleteJob(job.id)">删除</button>
+                    </div>
+                    <div v-else class="flex">
+                        <button class="danger-btn btn-sm" @click="deleteJob(job.id)">删除</button>
+                    </div>
                 </div>
                 <hr>
-
                 <!-- 超级管理员专属：求职者档案 & 咨询消息 -->
                 <div v-if="adminRole === 'super'">
                     <h4>👥 所有求职者档案 (可删除)</h4>
@@ -228,21 +263,54 @@
 <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
 <script>
     // ---------- localStorage 存储键 ----------
-    const STORAGE_USERS = 'hr_users';          // 求职者数组，对象包含 phone, password(base64), resumeData, resumeFile, resumeFileName
-    const STORAGE_CUR_USER = 'hr_current_user'; // 当前登录用户 phone
+    const STORAGE_USERS = 'hr_users';
+    const STORAGE_CUR_USER = 'hr_current_user';
     const STORAGE_JOBS = 'hr_jobs';
     const STORAGE_APPLICATIONS = 'hr_applications';
     const STORAGE_CONSULT_MSGS = 'hr_consult_msgs';
     const STORAGE_ADMIN = 'hr_admin_accounts';
 
-    // 初始化默认数据
-    if(!localStorage.getItem(STORAGE_JOBS)){
-        localStorage.setItem(STORAGE_JOBS, JSON.stringify([
-            { id:1, title:'海外工程项目经理', company:'中国交通建设集团', location:'沙特/印尼', salary:'65-85w/年', tag:'外派·央企直招', creator:'syadmin' },
-            { id:2, title:'留学生全球管培生', company:'中国五矿集团', location:'北京/新加坡', salary:'30w+外派津贴', tag:'留学生专属', creator:'syadmin' },
-            { id:3, title:'海外投融资分析师', company:'中金公司', location:'香港/迪拜', salary:'70-100w/年', tag:'金融央企', creator:'syadmin' }
-        ]));
+    // 辅助函数：迁移旧字段，确保每个职位有 heat, sticky, tag (统一为六个分类)
+    function migrateJobs(jobs) {
+        return jobs.map(job => {
+            if (job.heat === undefined) job.heat = 0;
+            if (job.sticky === undefined) job.sticky = false;
+            // 将旧tag或category统一映射到新分类
+            let oldTag = job.tag || '';
+            let oldCat = job.category || '';
+            let newTag = '';
+            if (oldCat && ['出国外派','外雇打工','留学打工','留学升学历','央国企内推','央国企就业指导'].includes(oldCat)) {
+                newTag = oldCat;
+            } else if (oldTag && ['出国外派','外雇打工','留学打工','留学升学历','央国企内推','央国企就业指导'].includes(oldTag)) {
+                newTag = oldTag;
+            } else {
+                // 默认根据旧值映射
+                if (oldTag.includes('外派') || oldTag.includes('央企直招')) newTag = '出国外派';
+                else if (oldTag.includes('留学生')) newTag = '留学升学历';
+                else if (oldTag.includes('急聘')) newTag = '外雇打工';
+                else newTag = '出国外派';
+            }
+            job.tag = newTag;
+            delete job.category; // 移除旧的category字段
+            return job;
+        });
     }
+
+    // 初始化默认数据（使用新分类）
+    if(!localStorage.getItem(STORAGE_JOBS)){
+        let defaultJobs = [
+            { id:1, title:'海外工程项目经理', company:'中国交通建设集团', location:'沙特/印尼', salary:'65-85w/年', tag:'出国外派', creator:'syadmin', heat:12, sticky:true },
+            { id:2, title:'留学生全球管培生', company:'中国五矿集团', location:'北京/新加坡', salary:'30w+外派津贴', tag:'留学升学历', creator:'syadmin', heat:8, sticky:false },
+            { id:3, title:'海外投融资分析师', company:'中金公司', location:'香港/迪拜', salary:'70-100w/年', tag:'出国外派', creator:'syadmin', heat:5, sticky:false },
+            { id:4, title:'海外财务经理', company:'中国电建', location:'非洲/东南亚', salary:'45-65w', tag:'外雇打工', creator:'syadmin', heat:9, sticky:false },
+            { id:5, title:'央企内推-技术岗', company:'中国电子科技集团', location:'北京', salary:'30-40w+户口', tag:'央国企内推', creator:'syadmin', heat:3, sticky:true }
+        ];
+        localStorage.setItem(STORAGE_JOBS, JSON.stringify(migrateJobs(defaultJobs)));
+    } else {
+        let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS));
+        localStorage.setItem(STORAGE_JOBS, JSON.stringify(migrateJobs(jobs)));
+    }
+
     if(!localStorage.getItem(STORAGE_USERS)) localStorage.setItem(STORAGE_USERS, JSON.stringify([]));
     if(!localStorage.getItem(STORAGE_APPLICATIONS)) localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify([]));
     if(!localStorage.getItem(STORAGE_CONSULT_MSGS)) localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify([]));
@@ -265,20 +333,19 @@
         data: {
             currentView: 'home',
             jobKeyword: '',
+            selectedCategory: 'all',
             isLogin: false,
             currentPhone: null,
             userInfo: { phone: '' },
             resume: { name:'', gender:'男', birth:'', phone:'', email:'', education:'', school:'', workExp:'', skills:'', intention:'' },
             resumeFileBase64: null,
             resumeFileName: '',
-            // 注册登录相关
             showRegister: false,
             loginPhone: '',
             loginPassword: '',
             regPhone: '',
             regPassword: '',
             regConfirmPwd: '',
-            // 后台
             showAdminDialog: false,
             adminLogged: false,
             adminRole: null,
@@ -286,16 +353,33 @@
             adminLoginPwd: '',
             newAdminName: '',
             newAdminPwd: '',
-            newJob: { title:'', company:'', location:'', salary:'', tag:'外派·央企直招' },
+            newJob: { title:'', company:'', location:'', salary:'', tag:'出国外派' },
             replyConsult: {},
             consultModal: { visible: false, job: null, content: '' }
         },
         computed: {
-            hotJobs() { return this.allJobs.slice(0,3); },
-            allJobs() { return JSON.parse(localStorage.getItem(STORAGE_JOBS) || '[]'); },
-            filteredJobs() {
+            hotJobs() {
+                let jobs = [...this.allJobs];
+                jobs.sort((a,b) => {
+                    if (a.sticky !== b.sticky) return b.sticky - a.sticky;
+                    return (b.heat || 0) - (a.heat || 0);
+                });
+                return jobs.slice(0,20);
+            },
+            allJobs() { 
+                let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS) || '[]');
+                return migrateJobs(jobs);
+            },
+            filteredJobsByCategory() {
                 let kw = this.jobKeyword.toLowerCase();
-                return this.allJobs.filter(j => j.title.toLowerCase().includes(kw) || j.company.toLowerCase().includes(kw));
+                let jobs = this.allJobs;
+                if (this.selectedCategory !== 'all') {
+                    jobs = jobs.filter(j => j.tag === this.selectedCategory);
+                }
+                if (kw) {
+                    jobs = jobs.filter(j => j.title.toLowerCase().includes(kw) || j.company.toLowerCase().includes(kw));
+                }
+                return jobs;
             },
             myApps() {
                 if(!this.currentPhone) return [];
@@ -385,7 +469,6 @@
                     a.click();
                 } else showToast('无附件');
             },
-            // 手机号注册登录逻辑
             doRegister(){
                 const phoneRegex = /^1[3-9]\d{9}$/;
                 if(!phoneRegex.test(this.regPhone)) return showToast('请输入正确的11位手机号');
@@ -443,7 +526,23 @@
                 if(has) return showToast('已投递过该职位');
                 apps.push({ id:Date.now(), phone:this.currentPhone, jobId:job.id, jobTitle:job.title, company:job.company, time:new Date().toLocaleString(), status:'已投递' });
                 localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(apps));
+                let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS));
+                let targetJob = jobs.find(j => j.id === job.id);
+                if(targetJob){
+                    targetJob.heat = (targetJob.heat || 0) + 1;
+                    localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
+                }
                 showToast(`成功投递 ${job.title}`);
+            },
+            updateJobHeatSticky(job){
+                let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS));
+                let idx = jobs.findIndex(j => j.id === job.id);
+                if(idx !== -1){
+                    jobs[idx].heat = job.heat;
+                    jobs[idx].sticky = job.sticky;
+                    localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
+                    showToast('已更新热度/置顶状态');
+                }
             },
             openConsult(job){
                 if(!this.isLogin){ showToast('请先登录'); this.currentView='profile'; return; }
@@ -468,7 +567,6 @@
                 showToast('咨询已发送，超级管理员会尽快回复');
                 this.consultModal.visible = false;
             },
-            // 管理后台
             adminLogin(){
                 let admins = JSON.parse(localStorage.getItem(STORAGE_ADMIN));
                 let found = admins.find(a => a.username === this.adminLoginUser && atob(a.password) === this.adminLoginPwd);
@@ -506,10 +604,18 @@
                 if(!this.newJob.title || !this.newJob.company) return showToast('请填写完整');
                 let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS));
                 let creator = this.adminRole === 'super' ? 'syadmin' : this.adminLoginUser;
-                jobs.push({ id: Date.now(), ...this.newJob, creator });
+                let newId = Date.now();
+                let newJobObj = {
+                    id: newId,
+                    ...this.newJob,
+                    creator,
+                    heat: 0,
+                    sticky: false
+                };
+                jobs.push(newJobObj);
                 localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
                 showToast('职位发布成功');
-                this.newJob = { title:'', company:'', location:'', salary:'', tag:'外派·央企直招' };
+                this.newJob = { title:'', company:'', location:'', salary:'', tag:'出国外派' };
             },
             deleteJob(jobId){
                 let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS));
