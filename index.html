@@ -35,7 +35,8 @@
         .toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: #1f2937; color: white; padding: 6px 18px; border-radius: 40px; font-size: 0.75rem; z-index: 1000; white-space: nowrap; }
         hr { margin: 12px 0; }
         .msg-item { border-bottom: 1px solid #eef2f8; padding: 12px 0; }
-        .danger-btn { background: #dc2626; color: white; border: none; border-radius: 30px; padding: 4px 12px; }
+        .danger-btn { background: #dc2626; color: white; border: none; border-radius: 30px; padding: 4px 12px; cursor: pointer; }
+        .link-btn { background: none; border: none; color: #1e4a76; cursor: pointer; text-decoration: underline; margin-top: 8px; }
     </style>
 </head>
 <body>
@@ -91,18 +92,28 @@
             </div>
         </div>
 
-        <!-- 个人中心 / 简历 -->
+        <!-- 个人中心 / 简历 + 手机号登录注册 -->
         <div v-if="currentView === 'profile'">
             <div v-if="!isLogin" class="card" style="text-align:center;">
-                <i class="fab fa-weixin" style="font-size:3rem; color:#07c160;"></i>
-                <h3>微信授权登录</h3>
-                <p>一键授权，无需手机验证</p>
-                <button class="btn" style="background:#07c160;" @click="mockWechatLogin">🔑 微信一键授权登录</button>
+                <i class="fas fa-mobile-alt" style="font-size:3rem; color:#1e4a76;"></i>
+                <h3>手机号注册 / 登录</h3>
+                <div class="flex" style="margin: 12px 0;">
+                    <input type="tel" v-model="loginPhone" placeholder="11位手机号" maxlength="11">
+                    <input type="password" v-model="loginPassword" placeholder="密码">
+                </div>
+                <button class="btn" style="width:100%; background:#1e4a76;" @click="doLogin">登录</button>
+                <button class="link-btn" @click="showRegister = !showRegister">{{ showRegister ? '返回登录' : '没有账号？立即注册' }}</button>
+                <div v-if="showRegister" style="margin-top: 16px;">
+                    <input type="tel" v-model="regPhone" placeholder="手机号" maxlength="11">
+                    <input type="password" v-model="regPassword" placeholder="密码">
+                    <input type="password" v-model="regConfirmPwd" placeholder="确认密码">
+                    <button class="btn" style="width:100%; background:#07c160;" @click="doRegister">注册新账号</button>
+                </div>
             </div>
             <div v-else>
                 <div class="card flex">
-                    <div><i class="fas fa-user-circle fa-2x"></i> <strong>{{ userInfo.nickname }}</strong> <span class="tag">微信用户</span></div>
-                    <button class="btn-outline btn-sm" @click="logout">退出</button>
+                    <div><i class="fas fa-user-circle fa-2x"></i> <strong>{{ userInfo.phone }}</strong> <span class="tag">求职者</span></div>
+                    <button class="btn-outline btn-sm" @click="logout">退出登录</button>
                 </div>
                 <div class="card">
                     <div class="flex"><h4>📄 我的简历</h4><span class="tag">完善度 {{ profilePercent }}%</span></div>
@@ -147,7 +158,7 @@
         <i class="fas fa-crown"></i>
     </div>
 
-    <!-- 管理员后台模态框（根据角色展示不同内容） -->
+    <!-- 管理员后台模态框（无最高管理员明文提示） -->
     <div v-if="showAdminDialog" class="modal-mask" @click.self="showAdminDialog=false">
         <div class="modal-box">
             <div v-if="!adminLogged">
@@ -155,7 +166,6 @@
                 <input type="text" placeholder="账号" v-model="adminLoginUser">
                 <input type="password" placeholder="密码" v-model="adminLoginPwd">
                 <button class="btn" style="width:100%;" @click="adminLogin">登录</button>
-                <div style="font-size:0.7rem; margin-top:12px;">超级管理员: syadmin / syadmin995320</div>
             </div>
             <div v-else>
                 <div class="flex"><h3>⚙️ 控制台 ({{ adminRole === 'super' ? '超级管理员' : '招聘管理员' }})</h3><button class="btn-outline btn-sm" @click="adminLogout">退出</button></div>
@@ -170,7 +180,7 @@
                     </div>
                     <hr>
                 </div>
-                <!-- 职位管理：超级管理员可删任何职位，普通管理员只能删自己发布的 -->
+                <!-- 职位管理 -->
                 <h4>📌 职位管理</h4>
                 <div v-if="adminRole === 'super' || adminRole === 'normal'">
                     <div class="flex"><input placeholder="职位名称" v-model="newJob.title"><input placeholder="公司" v-model="newJob.company"></div>
@@ -184,17 +194,17 @@
                 </div>
                 <hr>
 
-                <!-- 求职者信息管理 (仅超级管理员可见) -->
+                <!-- 超级管理员专属：求职者档案 & 咨询消息 -->
                 <div v-if="adminRole === 'super'">
                     <h4>👥 所有求职者档案 (可删除)</h4>
-                    <div v-for="user in allUsers" :key="user.userId" class="flex" style="margin-bottom:8px;">
-                        <div><strong>{{ user.nickname }}</strong> ({{ user.resumeData?.name || '未填' }}) 手机:{{ user.resumeData?.phone || '-' }}</div>
-                        <button class="danger-btn btn-sm" @click="deleteUser(user.userId)">删除账号</button>
+                    <div v-for="user in allUsers" :key="user.phone" class="flex" style="margin-bottom:8px;">
+                        <div><strong>{{ user.phone }}</strong> ({{ user.resumeData?.name || '未填' }}) 手机:{{ user.resumeData?.phone || '-' }}</div>
+                        <button class="danger-btn btn-sm" @click="deleteUser(user.phone)">删除账号</button>
                     </div>
                     <hr>
                     <h4>💬 求职者咨询消息 (附带职位信息)</h4>
                     <div v-for="msg in allConsultMsgs" :key="msg.id" class="msg-item">
-                        <div><strong>{{ msg.userName }}</strong> 咨询职位: {{ msg.jobTitle }} ({{ msg.jobCompany }}) <span style="font-size:0.6rem;">{{ msg.time }}</span></div>
+                        <div><strong>{{ msg.userPhone }}</strong> 咨询职位: {{ msg.jobTitle }} ({{ msg.jobCompany }}) <span style="font-size:0.6rem;">{{ msg.time }}</span></div>
                         <p>内容: {{ msg.content }}</p>
                         <div v-if="msg.reply"><i class="fas fa-reply"></i> 回复: {{ msg.reply }}</div>
                         <div v-else class="flex"><input v-model="replyConsult[msg.id]" placeholder="回复内容" style="flex:2;"><button class="btn-sm" @click="replyConsultMsg(msg.id)">回复</button></div>
@@ -218,11 +228,11 @@
 <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
 <script>
     // ---------- localStorage 存储键 ----------
-    const STORAGE_USERS = 'hr_users';
-    const STORAGE_CUR_USER = 'hr_current_user';
+    const STORAGE_USERS = 'hr_users';          // 求职者数组，对象包含 phone, password(base64), resumeData, resumeFile, resumeFileName
+    const STORAGE_CUR_USER = 'hr_current_user'; // 当前登录用户 phone
     const STORAGE_JOBS = 'hr_jobs';
     const STORAGE_APPLICATIONS = 'hr_applications';
-    const STORAGE_CONSULT_MSGS = 'hr_consult_msgs';    // 求职者咨询消息 (关联职位，仅超级管理员可见)
+    const STORAGE_CONSULT_MSGS = 'hr_consult_msgs';
     const STORAGE_ADMIN = 'hr_admin_accounts';
 
     // 初始化默认数据
@@ -256,11 +266,19 @@
             currentView: 'home',
             jobKeyword: '',
             isLogin: false,
-            userId: null,
-            userInfo: { nickname: '' },
+            currentPhone: null,
+            userInfo: { phone: '' },
             resume: { name:'', gender:'男', birth:'', phone:'', email:'', education:'', school:'', workExp:'', skills:'', intention:'' },
             resumeFileBase64: null,
             resumeFileName: '',
+            // 注册登录相关
+            showRegister: false,
+            loginPhone: '',
+            loginPassword: '',
+            regPhone: '',
+            regPassword: '',
+            regConfirmPwd: '',
+            // 后台
             showAdminDialog: false,
             adminLogged: false,
             adminRole: null,
@@ -280,14 +298,14 @@
                 return this.allJobs.filter(j => j.title.toLowerCase().includes(kw) || j.company.toLowerCase().includes(kw));
             },
             myApps() {
-                if(!this.userId) return [];
+                if(!this.currentPhone) return [];
                 let apps = JSON.parse(localStorage.getItem(STORAGE_APPLICATIONS));
-                return apps.filter(a => a.userId === this.userId);
+                return apps.filter(a => a.phone === this.currentPhone);
             },
             myConsultMsgs() {
-                if(!this.userId) return [];
+                if(!this.currentPhone) return [];
                 let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS));
-                return msgs.filter(m => m.userId === this.userId);
+                return msgs.filter(m => m.userPhone === this.currentPhone);
             },
             allConsultMsgs() {
                 if(this.adminRole !== 'super') return [];
@@ -318,23 +336,22 @@
             checkLocalLogin() {
                 let saved = localStorage.getItem(STORAGE_CUR_USER);
                 if(saved){
-                    let data = JSON.parse(saved);
-                    this.userId = data.userId;
-                    this.userInfo = { nickname: data.nickname };
+                    this.currentPhone = saved;
+                    this.userInfo = { phone: saved };
                     this.isLogin = true;
                     this.loadResumeFromStorage();
                 }
             },
             loadResumeFromStorage(){
                 let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
-                let u = users.find(x=>x.userId === this.userId);
+                let u = users.find(x=>x.phone === this.currentPhone);
                 if(u && u.resumeData) this.resume = { ...this.resume, ...u.resumeData };
                 if(u && u.resumeFile) { this.resumeFileBase64 = u.resumeFile; this.resumeFileName = u.resumeFileName; }
             },
             saveResume() {
-                if(!this.userId) return;
+                if(!this.currentPhone) return;
                 let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
-                let idx = users.findIndex(x=>x.userId === this.userId);
+                let idx = users.findIndex(x=>x.phone === this.currentPhone);
                 if(idx !== -1){
                     users[idx].resumeData = JSON.parse(JSON.stringify(this.resume));
                     localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
@@ -350,7 +367,7 @@
                     this.resumeFileBase64 = e.target.result;
                     this.resumeFileName = file.name;
                     let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
-                    let idx = users.findIndex(x=>x.userId === this.userId);
+                    let idx = users.findIndex(x=>x.phone === this.currentPhone);
                     if(idx !== -1){
                         users[idx].resumeFile = this.resumeFileBase64;
                         users[idx].resumeFileName = file.name;
@@ -368,36 +385,63 @@
                     a.click();
                 } else showToast('无附件');
             },
-            mockWechatLogin(){
-                let openid = 'wx_' + Date.now() + '_' + Math.random().toString(36).substr(2,6);
-                let nickname = '微友_' + Math.floor(Math.random()*1000);
+            // 手机号注册登录逻辑
+            doRegister(){
+                const phoneRegex = /^1[3-9]\d{9}$/;
+                if(!phoneRegex.test(this.regPhone)) return showToast('请输入正确的11位手机号');
+                if(!this.regPassword || this.regPassword.length < 4) return showToast('密码长度至少4位');
+                if(this.regPassword !== this.regConfirmPwd) return showToast('两次密码不一致');
                 let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
-                let exist = users.find(u => u.openid === openid);
-                if(!exist){
-                    let newUser = { userId: openid, openid, nickname, resumeData: null, resumeFile: null, resumeFileName: '', createTime: new Date().toISOString() };
-                    users.push(newUser);
-                    localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
+                if(users.find(u => u.phone === this.regPhone)) return showToast('手机号已注册');
+                let newUser = {
+                    phone: this.regPhone,
+                    password: btoa(this.regPassword),
+                    resumeData: null,
+                    resumeFile: null,
+                    resumeFileName: '',
+                    createTime: new Date().toISOString()
+                };
+                users.push(newUser);
+                localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
+                showToast('注册成功，请登录');
+                this.showRegister = false;
+                this.loginPhone = this.regPhone;
+                this.regPhone = '';
+                this.regPassword = '';
+                this.regConfirmPwd = '';
+            },
+            doLogin(){
+                const phoneRegex = /^1[3-9]\d{9}$/;
+                if(!phoneRegex.test(this.loginPhone)) return showToast('请输入正确的手机号');
+                if(!this.loginPassword) return showToast('请输入密码');
+                let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
+                let user = users.find(u => u.phone === this.loginPhone && atob(u.password) === this.loginPassword);
+                if(user){
+                    localStorage.setItem(STORAGE_CUR_USER, this.loginPhone);
+                    this.currentPhone = this.loginPhone;
+                    this.userInfo = { phone: this.loginPhone };
+                    this.isLogin = true;
+                    this.loadResumeFromStorage();
+                    showToast('登录成功');
+                    this.loginPhone = '';
+                    this.loginPassword = '';
+                } else {
+                    showToast('手机号或密码错误');
                 }
-                localStorage.setItem(STORAGE_CUR_USER, JSON.stringify({ userId: openid, nickname }));
-                this.userId = openid;
-                this.userInfo = { nickname };
-                this.isLogin = true;
-                this.loadResumeFromStorage();
-                showToast('登录成功');
             },
             logout(){
                 localStorage.removeItem(STORAGE_CUR_USER);
                 this.isLogin = false;
-                this.userId = null;
+                this.currentPhone = null;
                 showToast('已退出');
             },
             applyJob(job){
-                if(!this.isLogin){ showToast('请先微信登录'); this.currentView='profile'; return; }
+                if(!this.isLogin){ showToast('请先登录'); this.currentView='profile'; return; }
                 if(!this.resume.name || !this.resume.phone){ showToast('请先完善姓名和手机号'); this.currentView='profile'; return; }
                 let apps = JSON.parse(localStorage.getItem(STORAGE_APPLICATIONS));
-                let has = apps.some(a => a.userId === this.userId && a.jobId === job.id);
+                let has = apps.some(a => a.phone === this.currentPhone && a.jobId === job.id);
                 if(has) return showToast('已投递过该职位');
-                apps.push({ id:Date.now(), userId:this.userId, jobId:job.id, jobTitle:job.title, company:job.company, time:new Date().toLocaleString(), status:'已投递' });
+                apps.push({ id:Date.now(), phone:this.currentPhone, jobId:job.id, jobTitle:job.title, company:job.company, time:new Date().toLocaleString(), status:'已投递' });
                 localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(apps));
                 showToast(`成功投递 ${job.title}`);
             },
@@ -409,8 +453,8 @@
                 if(!this.consultModal.content.trim()) return showToast('请输入咨询内容');
                 let msg = {
                     id: Date.now(),
-                    userId: this.userId,
-                    userName: this.userInfo.nickname,
+                    userPhone: this.currentPhone,
+                    userName: this.resume.name || this.currentPhone,
                     jobId: this.consultModal.job.id,
                     jobTitle: this.consultModal.job.title,
                     jobCompany: this.consultModal.job.company,
@@ -475,17 +519,16 @@
                 localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
                 showToast('职位已删除');
             },
-            deleteUser(userId){
+            deleteUser(phone){
                 if(this.adminRole !== 'super') return;
                 let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
-                users = users.filter(u => u.userId !== userId);
+                users = users.filter(u => u.phone !== phone);
                 localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
-                // 同时删除该用户的投递记录和咨询
                 let apps = JSON.parse(localStorage.getItem(STORAGE_APPLICATIONS));
-                apps = apps.filter(a => a.userId !== userId);
+                apps = apps.filter(a => a.phone !== phone);
                 localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(apps));
                 let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS));
-                msgs = msgs.filter(m => m.userId !== userId);
+                msgs = msgs.filter(m => m.userPhone !== phone);
                 localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs));
                 showToast('已删除求职者账号及相关数据');
             },
