@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>打开外部浏览器提示</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f5f5f5;
+    }
+    /* 遮罩效果 */
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.85);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+      backdrop-filter: blur(5px);
+    }
+    .overlay .tips-card {
+      background: #fff;
+      color: #333;
+      width: 85%;
+      max-width: 300px;
+      border-radius: 16px;
+      padding: 24px 20px;
+      text-align: center;
+      box-shadow: 0 20px 35px rgba(0,0,0,0.3);
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .tips-card h3 {
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #07c160;
+    }
+    .tips-card p {
+      font-size: 16px;
+      line-height: 1.5;
+      margin-bottom: 20px;
+      color: #555;
+    }
+    .step-list {
+      text-align: left;
+      background: #f8f8f8;
+      border-radius: 12px;
+      padding: 12px 18px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+    .step-list li {
+      margin: 12px 0;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .step-icon {
+      width: 28px;
+      height: 28px;
+      background: #07c16020;
+      border-radius: 28px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: #07c160;
+    }
+    .btn-close {
+      background: #07c160;
+      border: none;
+      padding: 12px 28px;
+      border-radius: 40px;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      width: 80%;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .btn-close:active {
+      background: #06ad56;
+      transform: scale(0.96);
+    }
+  </style>
+</head>
+<body>
+
+<!-- 正常内容区域（可展示你的原页面简介或卡片） -->
+<div style="padding: 30px 20px; text-align: center;">
+  <h2>📱 HR 招聘平台</h2>
+  <p>为了获得最佳体验，请在系统浏览器中打开此页面</p>
+  <div style="margin: 30px 0; color: #888; font-size: 14px;">👇 下方为正常展示内容</div>
+  <div style="background:#fff; border-radius: 20px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+    这里是 HR 招聘信息区域<br/>
+    您的简历、职位详情等常规显示
+  </div>
+</div>
+
+<script>
+  (function() {
+    // 需要被跳转的业务 URL（你最终要打开的地址）
+    const TARGET_URL = 'https://Cansue12355.github.io/hr-platform/index.html';
+
+    // 判断是否在微信、支付宝内置浏览器中
+    const UA = navigator.userAgent.toLowerCase();
+    const isWeChat = /micromessenger/.test(UA);
+    const isAlipay = /alipayclient/.test(UA);
+
+    // 如果是微信或支付宝环境，则显示引导蒙层（强制打开外部浏览器的提示）
+    if (isWeChat || isAlipay) {
+      // 创建全屏蒙层
+      const overlayDiv = document.createElement('div');
+      overlayDiv.className = 'overlay';
+      overlayDiv.innerHTML = `
+        <div class="tips-card">
+          <h3>🔓 建议在浏览器中打开</h3>
+          <p>为了完整访问 <strong>HR 招聘平台</strong><br/>请按下方指引操作</p>
+          <ul class="step-list">
+            <li><span class="step-icon">1</span> 点击右上角「<span style="font-size:18px;">⋯</span>」</li>
+            <li><span class="step-icon">2</span> 选择 <strong>「在默认浏览器中打开」</strong></li>
+          </ul>
+          <button class="btn-close" id="closeGuideBtn">我已了解，继续浏览</button>
+          <p style="margin-top: 16px; font-size: 12px; color: #aaa;">关闭提示将停留在当前页面，部分功能可能受限</p>
+        </div>
+      `;
+      document.body.appendChild(overlayDiv);
+
+      // 关闭蒙层 —— 关闭后用户仍然在当前页面，但已获得正确的引导路径。
+      const closeBtn = document.getElementById('closeGuideBtn');
+      if (closeBtn) {
+        closeBtn.addEventListener('click', function() {
+          overlayDiv.style.opacity = '0';
+          setTimeout(() => {
+            overlayDiv.remove();
+          }, 200);
+        });
+      }
+
+      // 可选: 在蒙层展示期间，如果用户尝试点击链接/a标签，可以再做一次强制引导
+      // (实际这里不做自动跳出，因为iOS无法绕过; Android 部分版本可使用 Intent 但稳定性不够)
+      // 你也可以提供“立即跳转”按钮(仅安卓友好): 通过 window.location.href = TARGET_URL;
+    } else {
+      // 非微信/支付宝环境 —— 自动重定向到真正的目标页面（浏览器打开）
+      window.location.href = TARGET_URL;
+    }
+  })();
+</script>
+</body>
+</html>
