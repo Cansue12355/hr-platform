@@ -8,11 +8,30 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: #f1f5f9; }
-        #app { max-width: 500px; margin: 0 auto; background: #f8fafc; min-height: 100vh; position: relative; box-shadow: 0 0 20px rgba(0,0,0,0.05); }
+        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: #f1f5f9; overscroll-behavior: none; }
+        #app { max-width: 500px; margin: 0 auto; background: #f8fafc; min-height: 100vh; position: relative; box-shadow: 0 0 20px rgba(0,0,0,0.05); overflow-x: hidden; }
         .header { padding: 12px 16px; background: white; border-bottom: 1px solid #eef2f6; position: sticky; top: 0; z-index: 10; }
         .logo { font-size: 1.5rem; font-weight: 800; background: linear-gradient(135deg, #0c4a6e, #2b7a62); -webkit-background-clip: text; background-clip: text; color: transparent; }
-        .content { padding: 12px 16px 80px; overflow-y: auto; height: calc(100vh - 60px); }
+        .pull-indicator { 
+            height: 0; 
+            overflow: hidden; 
+            transition: height 0.3s ease, padding 0.3s ease; 
+            display: flex; align-items: center; justify-content: center; 
+            background: #f0f4ff; color: #1e4a76; 
+            font-size: 0.85rem; gap: 8px;
+            position: sticky; top: 0; z-index: 9;
+        }
+        .pull-indicator.active { height: 56px; padding: 12px 0; }
+        .pull-indicator i { font-size: 1rem; }
+        .content { 
+            padding: 12px 16px 80px; 
+            overflow-y: auto; 
+            height: calc(100vh - 60px); 
+            transform: translateY(0);
+            transition: transform 0.25s ease;
+            will-change: transform;
+        }
+        .content.pulling { transition: none; }
         .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; max-width: 500px; margin: 0 auto; background: rgba(255,255,255,0.96); backdrop-filter: blur(10px); display: flex; justify-content: space-around; padding: 8px 12px 20px; border-top: 1px solid #eef2f8; z-index: 20; }
         .tab-item { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 0.7rem; color: #7e8b9c; cursor: pointer; }
         .tab-item i { font-size: 1.5rem; }
@@ -64,7 +83,16 @@
             </div>
         </div>
     </div>
-    <div class="content">
+    <!-- 下拉刷新指示器 -->
+    <div class="pull-indicator" :class="{ active: pullState !== 'idle' }">
+        <template v-if="pullState === 'pulling'">
+            <i class="fas fa-arrow-down"></i> 继续下拉刷新
+        </template>
+        <template v-else-if="pullState === 'refreshing'">
+            <i class="fas fa-sync-alt fa-spin"></i> 正在刷新...
+        </template>
+    </div>
+    <div class="content" ref="scrollContainer" :class="{ pulling: pullState === 'pulling' }" :style="{ transform: 'translateY(' + pullDistance + 'px)' }">
         <!-- 首页视图 -->
         <div v-if="currentView === 'home'">
             <div class="grid-menu">
@@ -399,6 +427,7 @@
     const JSONBIN_API_KEY = '$2a$10$P4yMa6EFV5rBU98ajof0j.rvYd/yUZpuyrP/m3Na5DYzDf87HaFEa';
     const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
     const SYNC_INTERVAL_MS = 60 * 1000; // 兜底同步间隔
+    const PULL_THRESHOLD = 60; // 下拉阈值
 
     // ======================== localStorage 键名 ========================
     const STORAGE_USERS = 'hr_users';
@@ -427,7 +456,6 @@
             if (['出国外派','外雇打工','留学打工','留学升学历','央国企内推','央国企就业指导'].includes(oldTag)) newTag = oldTag;
             else if (oldTag.includes('外派') || oldTag.includes('央企直招')) newTag = '出国外派';
             else if (oldTag.includes('留学生')) newTag = '留学升学历';
-            else if (oldTag.includes('急聘')) newTag = '外雇打工';
             else newTag = '出国外派';
             job.tag = newTag;
             delete job.category;
@@ -457,8 +485,8 @@
                 localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(remote.consultMsgs || []));
                 localStorage.setItem(STORAGE_ADMIN, JSON.stringify(remote.adminAccounts || []));
                 console.log('[Cloud] 拉取最新数据成功');
-                if (window.vm && window.vm.currentPhone) {
-                    window.vm.loadResumeFromStorage();
+                if (window.vm) {
+                    if (window.vm.currentPhone) window.vm.loadResumeFromStorage();
                     window.vm.$forceUpdate();
                 }
                 showToast('已加载最新数据', 1500);
@@ -514,7 +542,7 @@
         await pullFromCloud();
         if (!localStorage.getItem(STORAGE_JOBS) || JSON.parse(localStorage.getItem(STORAGE_JOBS)).length === 0) {
             let defaultJobs = [
-               
+                // 默认职位数据（如有需要可在此补充）
             ];
             localStorage.setItem(STORAGE_JOBS, JSON.stringify(ensureJobFields(defaultJobs)));
             if (!localStorage.getItem(STORAGE_USERS)) localStorage.setItem(STORAGE_USERS, JSON.stringify([]));
@@ -574,7 +602,13 @@
                 consultMsgs: false,
                 jobManageNormal: false
             },
-            jobSearchKeyword: ''
+            jobSearchKeyword: '',
+            // 下拉刷新相关
+            pullState: 'idle',        // idle | pulling | refreshing
+            pullDistance: 0,
+            startY: 0,
+            currentY: 0,
+            pullLock: false,         // 防重复刷新锁
         },
         computed: {
             allJobsSortedByHeat() {
@@ -641,6 +675,7 @@
             await initData();
             this.checkLocalLogin();
             startAutoSync();
+            this.initPullToRefresh();
             document.addEventListener('visibilitychange', () => {
                 if (!document.hidden && this.showAdminDialog) this.closeAdminDialog();
             });
@@ -939,7 +974,75 @@
                 });
             },
             quickTip(msg){ showToast(msg); },
-            manualSyncNow() { pullFromCloud(); }
+            manualSyncNow() { 
+                if (this.pullLock) return;
+                this.pullState = 'refreshing';
+                this.pullDistance = PULL_THRESHOLD;
+                this.pullLock = true;
+                pullFromCloud().then(() => {
+                    this.resetPullState();
+                }).catch(() => {
+                    this.resetPullState();
+                });
+            },
+            // ---------- 下拉刷新实现 ----------
+            initPullToRefresh() {
+                const container = this.$refs.scrollContainer;
+                if (!container) return;
+
+                container.addEventListener('touchstart', this.handleTouchStart, { passive: true });
+                container.addEventListener('touchmove', this.handleTouchMove, { passive: false });
+                container.addEventListener('touchend', this.handleTouchEnd, { passive: false });
+            },
+            handleTouchStart(e) {
+                if (this.pullLock || this.pullState === 'refreshing') return;
+                // 只在滚动到顶部时记录起始位置
+                if (this.$refs.scrollContainer.scrollTop <= 0) {
+                    this.startY = e.touches[0].clientY;
+                    this.pullState = 'idle';
+                    this.pullDistance = 0;
+                } else {
+                    this.startY = null;
+                }
+            },
+            handleTouchMove(e) {
+                if (this.startY === null || this.pullLock) return;
+                const currentY = e.touches[0].clientY;
+                const deltaY = currentY - this.startY;
+                if (deltaY > 0) {
+                    // 阻止页面默认滚动（防止触发浏览器回弹效果）
+                    e.preventDefault();
+                    // 添加阻尼效果
+                    this.pullDistance = Math.min(deltaY * 0.5, 150);
+                    if (this.pullDistance > 5) {
+                        this.pullState = 'pulling';
+                    }
+                }
+            },
+            handleTouchEnd() {
+                if (this.pullLock || this.startY === null) return;
+                if (this.pullDistance >= PULL_THRESHOLD) {
+                    // 触发刷新
+                    this.pullState = 'refreshing';
+                    this.pullDistance = PULL_THRESHOLD;
+                    this.pullLock = true;
+                    pullFromCloud().then(() => {
+                        this.resetPullState();
+                    }).catch(() => {
+                        this.resetPullState();
+                    });
+                } else {
+                    // 距离不足，回弹
+                    this.resetPullState();
+                }
+                this.startY = null;
+            },
+            resetPullState() {
+                this.pullState = 'idle';
+                this.pullDistance = 0;
+                this.pullLock = false;
+                this.startY = null;
+            }
         }
     });
     window.vm = vm;
