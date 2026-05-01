@@ -514,11 +514,7 @@
         await pullFromCloud();
         if (!localStorage.getItem(STORAGE_JOBS) || JSON.parse(localStorage.getItem(STORAGE_JOBS)).length === 0) {
             let defaultJobs = [
-                { id:1, title:'海外工程项目经理', company:'中国交通建设集团', location:'沙特/印尼', salary:'65-85w/年', tag:'出国外派', creator:'syadmin', heat:12, sticky:true, description:'负责海外大型基建项目管理，要求5年以上经验，英语流利，外派期间提供住宿及高额补贴。', duration:'6个月', createdAt: new Date().toISOString() },
-                { id:2, title:'留学升学历', company:'中国五矿集团', location:'北京/新加坡', salary:'30w+外派津贴', tag:'留学升学历', creator:'syadmin', heat:8, sticky:false, description:'面向海外留学生，轮岗培养，结束可定岗国际业务部。', duration:'1个月', createdAt: new Date().toISOString() },
-                { id:3, title:'海外投融资分析师', company:'中金公司', location:'香港/迪拜', salary:'70-100w/年', tag:'出国外派', creator:'syadmin', heat:5, sticky:false, description:'负责跨境并购及投融资分析，要求金融相关背景。', duration:'3个月', createdAt: new Date().toISOString() },
-                { id:4, title:'海外财务经理', company:'中国电建', location:'非洲/东南亚', salary:'45-65w', tag:'外雇打工', creator:'syadmin', heat:9, sticky:false, description:'驻外财务全盘管理，熟悉国际会计准则。', duration:'15天', createdAt: new Date().toISOString() },
-                { id:5, title:'央企内推-技术岗', company:'中国电子科技集团', location:'北京', salary:'30-40w+户口', tag:'央国企内推', creator:'syadmin', heat:3, sticky:true, description:'内推解决北京户口，要求硕士及以上学历。', duration:'立即', createdAt: new Date().toISOString() }
+               
             ];
             localStorage.setItem(STORAGE_JOBS, JSON.stringify(ensureJobFields(defaultJobs)));
             if (!localStorage.getItem(STORAGE_USERS)) localStorage.setItem(STORAGE_USERS, JSON.stringify([]));
