@@ -10,26 +10,37 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: #f1f5f9; overscroll-behavior: none; }
         #app { max-width: 500px; margin: 0 auto; background: #f8fafc; min-height: 100vh; position: relative; box-shadow: 0 0 20px rgba(0,0,0,0.05); overflow-x: hidden; }
+        .loading-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #f8fafc; z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.3s;
+        }
+        .loading-overlay.hidden { opacity: 0; pointer-events: none; }
+        .loading-spinner {
+            width: 48px; height: 48px;
+            border: 4px solid #eef2f8;
+            border-top-color: #1e4a76;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        .loading-text { margin-top: 20px; color: #1e4a76; font-weight: 600; font-size: 0.95rem; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
         .header { padding: 12px 16px; background: white; border-bottom: 1px solid #eef2f6; position: sticky; top: 0; z-index: 10; }
         .logo { font-size: 1.5rem; font-weight: 800; background: linear-gradient(135deg, #0c4a6e, #2b7a62); -webkit-background-clip: text; background-clip: text; color: transparent; }
         .pull-indicator { 
-            height: 0; 
-            overflow: hidden; 
-            transition: height 0.3s ease, padding 0.3s ease; 
+            height: 0; overflow: hidden; transition: height 0.3s ease, padding 0.3s ease; 
             display: flex; align-items: center; justify-content: center; 
-            background: #f0f4ff; color: #1e4a76; 
-            font-size: 0.85rem; gap: 8px;
+            background: #f0f4ff; color: #1e4a76; font-size: 0.85rem; gap: 8px;
             position: sticky; top: 0; z-index: 9;
         }
         .pull-indicator.active { height: 56px; padding: 12px 0; }
         .pull-indicator i { font-size: 1rem; }
         .content { 
-            padding: 12px 16px 80px; 
-            overflow-y: auto; 
+            padding: 12px 16px 80px; overflow-y: auto; 
             height: calc(100vh - 60px); 
-            transform: translateY(0);
-            transition: transform 0.25s ease;
-            will-change: transform;
+            transform: translateY(0); transition: transform 0.25s ease; will-change: transform;
         }
         .content.pulling { transition: none; }
         .tab-bar { position: fixed; bottom: 0; left: 0; right: 0; max-width: 500px; margin: 0 auto; background: rgba(255,255,255,0.96); backdrop-filter: blur(10px); display: flex; justify-content: space-around; padding: 8px 12px 20px; border-top: 1px solid #eef2f8; z-index: 20; }
@@ -70,10 +81,16 @@
         .admin-section-header { background: #f1f5f9; padding: 12px; border-radius: 20px; cursor: pointer; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
         .admin-section-content { margin-top: 12px; max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
         .admin-section-content.open { max-height: 2000px; overflow-y: auto; }
+        .admin-job-edit input, .admin-job-edit select, .admin-job-edit textarea { margin-bottom: 8px; }
     </style>
 </head>
 <body>
 <div id="app">
+    <div class="loading-overlay" :class="{ hidden: !isLoading }">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">正在连接央派云端...</div>
+    </div>
+
     <div class="header">
         <div class="flex">
             <div class="logo">CENEX HR <span style="font-size:0.7rem;">· 央企外派</span></div>
@@ -83,7 +100,6 @@
             </div>
         </div>
     </div>
-    <!-- 下拉刷新指示器 -->
     <div class="pull-indicator" :class="{ active: pullState !== 'idle' }">
         <template v-if="pullState === 'pulling'">
             <i class="fas fa-arrow-down"></i> 继续下拉刷新
@@ -245,7 +261,6 @@
         </div>
     </div>
 
-    <!-- 底部导航 -->
     <div class="tab-bar">
         <div class="tab-item" :class="{active: currentView === 'home'}" @click="currentView='home'"><i class="fas fa-home"></i><span>首页</span></div>
         <div class="tab-item" :class="{active: currentView === 'jobs'}" @click="currentView='jobs'"><i class="fas fa-briefcase"></i><span>职位</span></div>
@@ -253,12 +268,9 @@
         <div class="tab-item" :class="{active: currentView === 'profile'}" @click="currentView='profile'"><i class="far fa-user"></i><span>我的</span></div>
     </div>
 
-    <!-- 管理员悬浮入口 -->
-    <div class="admin-float" @click="showAdminDialog = true">
-        <i class="fas fa-crown"></i>
-    </div>
+    <div class="admin-float" @click="showAdminDialog = true"><i class="fas fa-crown"></i></div>
 
-    <!-- 管理员后台模态框（折叠式） -->
+    <!-- ---------- 管理员后台（完整版）---------- -->
     <div v-if="showAdminDialog" class="modal-mask" @click.self="closeAdminDialog">
         <div class="modal-box">
             <div v-if="!adminLogged">
@@ -268,10 +280,13 @@
                 <button class="btn" style="width:100%;" @click="adminLogin">登录</button>
             </div>
             <div v-else>
-                <div class="flex"><h3>⚙️ 控制台 ({{ adminRole === 'super' ? '超级管理员' : '招聘管理员' }})</h3><button class="btn-outline btn-sm" @click="adminLogoutAndClose">退出后台</button></div>
+                <div class="flex">
+                    <h3>⚙️ 控制台 ({{ adminRole === 'super' ? '超级管理员' : '招聘管理员' }})</h3>
+                    <button class="btn-outline btn-sm" @click="adminLogoutAndClose">退出后台</button>
+                </div>
                 <hr>
 
-                <!-- 仅超级管理员显示的6个折叠板块 -->
+                <!-- 超级管理员板块 -->
                 <div v-if="adminRole === 'super'">
                     <!-- 1. 普通管理员管理 -->
                     <div class="admin-section">
@@ -280,7 +295,11 @@
                             <i :class="sections.adminManage ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
                         </div>
                         <div class="admin-section-content" :class="{ open: sections.adminManage }">
-                            <div class="flex"><input v-model="newAdminName" placeholder="用户名" style="flex:2;"><input type="password" v-model="newAdminPwd" placeholder="密码" style="flex:2;"><button @click="addAdmin">添加</button></div>
+                            <div class="flex">
+                                <input v-model="newAdminName" placeholder="用户名" style="flex:2;">
+                                <input type="password" v-model="newAdminPwd" placeholder="密码" style="flex:2;">
+                                <button @click="addAdmin">添加</button>
+                            </div>
                             <div v-for="adm in adminList" :key="adm.username" class="flex">
                                 <span>{{ adm.username }} ({{ adm.role }})</span>
                                 <button class="danger-btn" v-if="adm.username !== 'syadmin'" @click="deleteAdmin(adm.username)">删除</button>
@@ -288,7 +307,7 @@
                         </div>
                     </div>
 
-                    <!-- 2. 热门职位排行 TOP20 -->
+                    <!-- 2. 热门职位排行 -->
                     <div class="admin-section">
                         <div class="admin-section-header" @click="toggleSection('hotRank')">
                             <span>🔥 热门职位排行 TOP20 (按热度)</span>
@@ -302,32 +321,59 @@
                         </div>
                     </div>
 
-                    <!-- 3. 职位管理（包含发布、搜索、编辑、删除、热度置顶） -->
+                    <!-- 3. 职位管理 (发布/搜索/编辑/删除/热度置顶) -->
                     <div class="admin-section">
                         <div class="admin-section-header" @click="toggleSection('jobManage')">
                             <span>📌 职位管理 (发布/搜索/编辑/删除/热度置顶)</span>
                             <i :class="sections.jobManage ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
                         </div>
                         <div class="admin-section-content" :class="{ open: sections.jobManage }">
-                            <div class="flex"><input placeholder="职位名称" v-model="newJob.title"><input placeholder="公司" v-model="newJob.company"></div>
-                            <div class="flex"><input placeholder="地点" v-model="newJob.location"><input placeholder="薪资" v-model="newJob.salary"></div>
+                            <!-- 发布新职位表单 -->
+                            <div class="flex">
+                                <input placeholder="职位名称" v-model="newJob.title" style="flex:2;">
+                                <input placeholder="公司" v-model="newJob.company" style="flex:2;">
+                            </div>
+                            <div class="flex">
+                                <input placeholder="地点" v-model="newJob.location" style="flex:2;">
+                                <input placeholder="薪资" v-model="newJob.salary" style="flex:2;">
+                            </div>
                             <select v-model="newJob.tag">
-                                <option>出国外派</option><option>外雇打工</option><option>留学打工</option>
-                                <option>留学升学历</option><option>央国企内推</option><option>央国企就业指导</option>
+                                <option>出国外派</option>
+                                <option>外雇打工</option>
+                                <option>留学打工</option>
+                                <option>留学升学历</option>
+                                <option>央国企内推</option>
+                                <option>央国企就业指导</option>
                             </select>
                             <textarea v-model="newJob.description" rows="3" placeholder="项目介绍（详细描述职位内容）"></textarea>
                             <input type="text" v-model="newJob.duration" placeholder="出境所需时长（例如：3个月 / 15天）">
                             <button class="btn" style="width:100%; margin-bottom:12px;" @click="publishJob">发布职位</button>
+
                             <input type="text" v-model="jobSearchKeyword" placeholder="搜索职位标题或公司" style="margin-bottom:12px;">
-                            <div v-for="job in filteredJobsForAdmin" :key="job.id" class="card" style="margin-bottom:12px;">
-                                <div class="flex"><strong>{{ job.title }}</strong> (热度:{{ job.heat || 0 }}) <span v-if="job.sticky" class="tag sticky-badge">置顶</span></div>
-                                <div>公司: {{ job.company }} | 分类: {{ job.tag || '未分类' }}</div>
-                                <div class="job-desc" v-if="job.description">简介: {{ job.description.substring(0, 60) }}...</div>
+                            <div v-for="job in filteredJobsForAdmin" :key="job.id" class="card admin-job-edit" style="margin-bottom:12px;">
                                 <div class="flex">
-                                    <div><label>热度: <input type="number" v-model.number="job.heat" style="width:70px;"></label></div>
-                                    <div><label>置顶: <input type="checkbox" v-model="job.sticky"></label></div>
-                                    <textarea v-model="job.description" rows="2" placeholder="项目介绍" style="width:100%; margin:6px 0;"></textarea>
-                                    <input v-model="job.duration" placeholder="出境所需时长">
+                                    <input v-model="job.title" placeholder="职位名称" style="flex:2;">
+                                    <input v-model="job.company" placeholder="公司" style="flex:2;">
+                                </div>
+                                <div class="flex">
+                                    <input v-model="job.location" placeholder="地点" style="flex:2;">
+                                    <input v-model="job.salary" placeholder="薪资" style="flex:2;">
+                                </div>
+                                <select v-model="job.tag">
+                                    <option>出国外派</option>
+                                    <option>外雇打工</option>
+                                    <option>留学打工</option>
+                                    <option>留学升学历</option>
+                                    <option>央国企内推</option>
+                                    <option>央国企就业指导</option>
+                                </select>
+                                <textarea v-model="job.description" rows="2" placeholder="项目介绍"></textarea>
+                                <input v-model="job.duration" placeholder="出境所需时长">
+                                <div class="flex">
+                                    <label>热度: <input type="number" v-model.number="job.heat" style="width:70px;"></label>
+                                    <label>置顶: <input type="checkbox" v-model="job.sticky"></label>
+                                </div>
+                                <div class="flex">
                                     <button class="btn-sm" @click="updateJobHeatSticky(job)">保存修改</button>
                                     <button class="danger-btn btn-sm" @click="deleteJob(job.id)">删除</button>
                                 </div>
@@ -343,7 +389,11 @@
                         </div>
                         <div class="admin-section-content" :class="{ open: sections.userArchives }">
                             <div v-for="user in allUsers" :key="user.phone" class="flex" style="margin-bottom:8px;">
-                                <div><strong>{{ user.phone }}</strong> ({{ user.resumeData?.name || '未填' }}) 安全码: {{ user.securityCode?.substring(0,2) + '***' }}</div>
+                                <div>
+                                    <strong>{{ user.phone }}</strong> 
+                                    ({{ user.resumeData?.name || '未填' }}) 
+                                    安全码: {{ user.securityCode?.substring(0,2) + '***' }}
+                                </div>
                                 <button class="danger-btn btn-sm" @click="deleteUser(user.phone)">删除账号</button>
                             </div>
                         </div>
@@ -357,17 +407,26 @@
                         </div>
                         <div class="admin-section-content" :class="{ open: sections.consultMsgs }">
                             <div v-for="msg in allConsultMsgs" :key="msg.id" class="msg-item">
-                                <div><strong>{{ msg.userPhone }}</strong> 咨询职位: {{ msg.jobTitle }} ({{ msg.jobCompany }}) <span style="font-size:0.6rem;">{{ msg.time }}</span></div>
+                                <div>
+                                    <strong>{{ msg.userPhone }}</strong> 
+                                    咨询职位: {{ msg.jobTitle }} ({{ msg.jobCompany }})
+                                    <span style="font-size:0.6rem;">{{ msg.time }}</span>
+                                </div>
                                 <p>内容: {{ msg.content }}</p>
-                                <div v-if="msg.reply"><i class="fas fa-reply"></i> 回复: {{ msg.reply }}</div>
-                                <div v-else class="flex"><input v-model="replyConsult[msg.id]" placeholder="回复内容" style="flex:2;"><button class="btn-sm" @click="replyConsultMsg(msg.id)">回复</button></div>
+                                <div v-if="msg.reply">
+                                    <i class="fas fa-reply"></i> 回复: {{ msg.reply }}
+                                </div>
+                                <div v-else class="flex">
+                                    <input v-model="replyConsult[msg.id]" placeholder="回复内容" style="flex:2;">
+                                    <button class="btn-sm" @click="replyConsultMsg(msg.id)">回复</button>
+                                </div>
                                 <button class="danger-btn btn-sm" @click="deleteConsultMsg(msg.id)">删除此消息</button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 普通管理员只能看到职位管理（简化版） -->
+                <!-- 普通管理员板块 -->
                 <div v-if="adminRole === 'normal'">
                     <div class="admin-section">
                         <div class="admin-section-header" @click="toggleSection('jobManageNormal')">
@@ -375,18 +434,54 @@
                             <i :class="sections.jobManageNormal ? 'fas fa-chevron-up' : 'fas fa-chevron-down'"></i>
                         </div>
                         <div class="admin-section-content" :class="{ open: sections.jobManageNormal }">
-                            <div class="flex"><input placeholder="职位名称" v-model="newJob.title"><input placeholder="公司" v-model="newJob.company"></div>
-                            <div class="flex"><input placeholder="地点" v-model="newJob.location"><input placeholder="薪资" v-model="newJob.salary"></div>
+                            <!-- 发布新职位表单 -->
+                            <div class="flex">
+                                <input placeholder="职位名称" v-model="newJob.title" style="flex:2;">
+                                <input placeholder="公司" v-model="newJob.company" style="flex:2;">
+                            </div>
+                            <div class="flex">
+                                <input placeholder="地点" v-model="newJob.location" style="flex:2;">
+                                <input placeholder="薪资" v-model="newJob.salary" style="flex:2;">
+                            </div>
                             <select v-model="newJob.tag">
-                                <option>出国外派</option><option>外雇打工</option><option>留学打工</option>
-                                <option>留学升学历</option><option>央国企内推</option><option>央国企就业指导</option>
+                                <option>出国外派</option>
+                                <option>外雇打工</option>
+                                <option>留学打工</option>
+                                <option>留学升学历</option>
+                                <option>央国企内推</option>
+                                <option>央国企就业指导</option>
                             </select>
                             <textarea v-model="newJob.description" rows="3" placeholder="项目介绍"></textarea>
                             <input type="text" v-model="newJob.duration" placeholder="出境所需时长">
                             <button class="btn" style="width:100%; margin-bottom:12px;" @click="publishJob">发布职位</button>
-                            <div v-for="job in myOwnJobs" :key="job.id" class="card">
-                                <div class="flex"><strong>{{ job.title }}</strong> (热度:{{ job.heat }})</div>
-                                <button class="danger-btn btn-sm" @click="deleteJob(job.id)">删除</button>
+
+                            <div v-for="job in myOwnJobs" :key="job.id" class="card admin-job-edit" style="margin-bottom:12px;">
+                                <div class="flex">
+                                    <input v-model="job.title" placeholder="职位名称" style="flex:2;">
+                                    <input v-model="job.company" placeholder="公司" style="flex:2;">
+                                </div>
+                                <div class="flex">
+                                    <input v-model="job.location" placeholder="地点" style="flex:2;">
+                                    <input v-model="job.salary" placeholder="薪资" style="flex:2;">
+                                </div>
+                                <select v-model="job.tag">
+                                    <option>出国外派</option>
+                                    <option>外雇打工</option>
+                                    <option>留学打工</option>
+                                    <option>留学升学历</option>
+                                    <option>央国企内推</option>
+                                    <option>央国企就业指导</option>
+                                </select>
+                                <textarea v-model="job.description" rows="2" placeholder="项目介绍"></textarea>
+                                <input v-model="job.duration" placeholder="出境所需时长">
+                                <div class="flex">
+                                    <label>热度: <input type="number" v-model.number="job.heat" style="width:70px;"></label>
+                                    <label>置顶: <input type="checkbox" v-model="job.sticky"></label>
+                                </div>
+                                <div class="flex">
+                                    <button class="btn-sm" @click="updateJobHeatSticky(job)">保存修改</button>
+                                    <button class="danger-btn btn-sm" @click="deleteJob(job.id)">删除</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -422,399 +517,605 @@
 
 <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
 <script>
-    // ======================== JSONBin 云存储配置 ========================
-    const JSONBIN_BIN_ID = '69f37038aaba88219757286c';
-    const JSONBIN_API_KEY = '$2a$10$P4yMa6EFV5rBU98ajof0j.rvYd/yUZpuyrP/m3Na5DYzDf87HaFEa';
-    const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
-    const SYNC_INTERVAL_MS = 60 * 1000;
-    const PULL_THRESHOLD = 60;
+const JSONBIN_BIN_ID = '69f37038aaba88219757286c';
+const JSONBIN_API_KEY = '$2a$10$P4yMa6EFV5rBU98ajof0j.rvYd/yUZpuyrP/m3Na5DYzDf87HaFEa';
+const JSONBIN_URL = `https://api.jsonbin.io/v3/b/${JSONBIN_BIN_ID}`;
+const SYNC_INTERVAL_MS = 5000;  // 5秒短轮询
+const PULL_THRESHOLD = 60;
 
-    const STORAGE_USERS = 'hr_users';
-    const STORAGE_CUR_USER = 'hr_current_user';
-    const STORAGE_JOBS = 'hr_jobs';
-    const STORAGE_APPLICATIONS = 'hr_applications';
-    const STORAGE_CONSULT_MSGS = 'hr_consult_msgs';
-    const STORAGE_ADMIN = 'hr_admin_accounts';
+const STORAGE_USERS = 'hr_users';
+const STORAGE_CUR_USER = 'hr_current_user';
+const STORAGE_JOBS = 'hr_jobs';
+const STORAGE_APPLICATIONS = 'hr_applications';
+const STORAGE_CONSULT_MSGS = 'hr_consult_msgs';
+const STORAGE_ADMIN = 'hr_admin_accounts';
 
-    function formatDate(isoString) {
-        if (!isoString) return '未知';
-        const date = new Date(isoString);
-        return `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2,'0')}-${date.getDate().toString().padStart(2,'0')} ${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}`;
+function formatDate(isoString) {
+    if (!isoString) return '未知';
+    const d = new Date(isoString);
+    return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+}
+
+function ensureJobFields(jobs) {
+    return jobs.map(j => {
+        if (j.heat === undefined) j.heat = 0;
+        if (j.sticky === undefined) j.sticky = false;
+        if (!j.description) j.description = '';
+        if (!j.duration) j.duration = '';
+        if (!j.createdAt) j.createdAt = new Date().toISOString();
+        if (!j.tag) j.tag = '出国外派';
+        return j;
+    });
+}
+
+function showToast(msg, duration = 2000) {
+    const div = document.createElement('div');
+    div.className = 'toast';
+    div.innerText = msg;
+    document.body.appendChild(div);
+    setTimeout(() => div.remove(), duration);
+}
+
+async function pullFromCloud() {
+    try {
+        const res = await fetch(JSONBIN_URL, { headers: { 'X-Master-Key': JSONBIN_API_KEY } });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const remote = data.record;
+        if (remote) {
+            localStorage.setItem(STORAGE_USERS, JSON.stringify(remote.users || []));
+            localStorage.setItem(STORAGE_JOBS, JSON.stringify(remote.jobs || []));
+            localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(remote.applications || []));
+            localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(remote.consultMsgs || []));
+            localStorage.setItem(STORAGE_ADMIN, JSON.stringify(remote.adminAccounts || []));
+            if (window.vm) {
+                if (window.vm.currentPhone) window.vm.loadResumeFromStorage();
+                window.vm.$forceUpdate();
+            }
+        }
+    } catch (err) {
+        console.error('拉取失败', err);
     }
+}
 
-    function ensureJobFields(jobs) {
-        return jobs.map(job => {
-            if (job.heat === undefined) job.heat = 0;
-            if (job.sticky === undefined) job.sticky = false;
-            if (!job.description) job.description = '';
-            if (!job.duration) job.duration = '';
-            if (!job.createdAt) job.createdAt = new Date().toISOString();
-            let oldTag = job.tag || '';
-            let newTag = '';
-            if (['出国外派','外雇打工','留学打工','留学升学历','央国企内推','央国企就业指导'].includes(oldTag)) newTag = oldTag;
-            else if (oldTag.includes('外派') || oldTag.includes('央企直招')) newTag = '出国外派';
-            else if (oldTag.includes('留学生')) newTag = '留学升学历';
-            else newTag = '出国外派';
-            job.tag = newTag;
-            delete job.category;
-            return job;
+async function pushToCloud() {
+    try {
+        const allData = {
+            users: JSON.parse(localStorage.getItem(STORAGE_USERS) || '[]'),
+            jobs: JSON.parse(localStorage.getItem(STORAGE_JOBS) || '[]'),
+            applications: JSON.parse(localStorage.getItem(STORAGE_APPLICATIONS) || '[]'),
+            consultMsgs: JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS) || '[]'),
+            adminAccounts: JSON.parse(localStorage.getItem(STORAGE_ADMIN) || '[]')
+        };
+        const res = await fetch(JSONBIN_URL, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_API_KEY },
+            body: JSON.stringify(allData)
         });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        console.log('[Cloud] 推送成功');
+    } catch (err) {
+        console.error('推送失败', err);
     }
+}
 
-    function showToast(msg, duration = 2000) {
-        let div = document.createElement('div');
-        div.className = 'toast';
-        div.innerText = msg;
-        document.body.appendChild(div);
-        setTimeout(() => div.remove(), duration);
+async function syncAndModify(modifyFn) {
+    await pullFromCloud();
+    await modifyFn();
+    await pushToCloud();
+    window.vm.$forceUpdate();
+}
+
+async function initData() {
+    await pullFromCloud();
+    if (!localStorage.getItem(STORAGE_JOBS)) localStorage.setItem(STORAGE_JOBS, JSON.stringify([]));
+    if (!localStorage.getItem(STORAGE_USERS)) localStorage.setItem(STORAGE_USERS, JSON.stringify([]));
+    if (!localStorage.getItem(STORAGE_APPLICATIONS)) localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify([]));
+    if (!localStorage.getItem(STORAGE_CONSULT_MSGS)) localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify([]));
+    if (!localStorage.getItem(STORAGE_ADMIN)) {
+        localStorage.setItem(STORAGE_ADMIN, JSON.stringify([
+            { username: 'syadmin', password: btoa('syadmin995320'), role: 'super' }
+        ]));
     }
+    await pushToCloud();
+}
 
-    async function pullFromCloud() {
-        try {
-            const res = await fetch(JSONBIN_URL, { headers: { 'X-Master-Key': JSONBIN_API_KEY } });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const data = await res.json();
-            const remote = data.record;
-            if (remote) {
-                localStorage.setItem(STORAGE_USERS, JSON.stringify(remote.users || []));
-                localStorage.setItem(STORAGE_JOBS, JSON.stringify(remote.jobs || []));
-                localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(remote.applications || []));
-                localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(remote.consultMsgs || []));
-                localStorage.setItem(STORAGE_ADMIN, JSON.stringify(remote.adminAccounts || []));
-                if (window.vm) {
-                    if (window.vm.currentPhone) window.vm.loadResumeFromStorage();
-                    window.vm.$forceUpdate();
+function startAutoSync() {
+    setInterval(() => {
+        pullFromCloud();
+    }, SYNC_INTERVAL_MS);
+}
+
+const vm = new Vue({
+    el: '#app',
+    data: () => ({
+        isLoading: true,
+        currentView: 'home',
+        jobKeyword: '',
+        selectedCategory: 'all',
+        isLogin: false,
+        currentPhone: null,
+        userInfo: { phone: '' },
+        resume: { name:'', gender:'男', birth:'', phone:'', email:'', education:'', school:'', workExp:'', skills:'', intention:'' },
+        resumeFileBase64: null,
+        resumeFileName: '',
+        showRegister: false,
+        loginPhone: '',
+        loginPassword: '',
+        regPhone: '',
+        regPassword: '',
+        regConfirmPwd: '',
+        regSecurityCode: '',
+        showChangePwd: false,
+        changePwd: { oldPwd: '', newPwd: '', confirmPwd: '', securityCode: '' },
+        showAdminDialog: false,
+        adminLogged: false,
+        adminRole: null,
+        adminLoginUser: '',
+        adminLoginPwd: '',
+        newAdminName: '',
+        newAdminPwd: '',
+        newJob: { title:'', company:'', location:'', salary:'', tag:'出国外派', description:'', duration:'' },
+        replyConsult: {},
+        consultModal: { visible: false, job: null, content: '' },
+        detailJob: null,
+        sections: {
+            adminManage: false, hotRank: false, jobManage: false,
+            userArchives: false, consultMsgs: false, jobManageNormal: false
+        },
+        jobSearchKeyword: '',
+        pullState: 'idle',
+        pullDistance: 0,
+        startY: 0,
+        pullLock: false,
+    }),
+    computed: {
+        allJobs() {
+            return ensureJobFields(JSON.parse(localStorage.getItem(STORAGE_JOBS) || '[]'));
+        },
+        top3HotJobs() {
+            return [...this.allJobs].sort((a,b) => (b.heat||0)-(a.heat||0)).slice(0,3);
+        },
+        hotRankJobs() {
+            return [...this.allJobs].sort((a,b) => (b.heat||0)-(a.heat||0)).slice(0,20);
+        },
+        // 置顶绝对优先排序
+        hotJobs() {
+            let jobs = [...this.allJobs];
+            jobs.sort((a, b) => {
+                const stickyA = a.sticky ? 1 : 0;
+                const stickyB = b.sticky ? 1 : 0;
+                if (stickyB !== stickyA) return stickyB - stickyA;
+                return (b.heat || 0) - (a.heat || 0);
+            });
+            return jobs.slice(0, 20);
+        },
+        filteredJobsByCategory() {
+            let kw = this.jobKeyword.toLowerCase();
+            let jobs = this.allJobs;
+            if (this.selectedCategory !== 'all') jobs = jobs.filter(j => j.tag === this.selectedCategory);
+            if (kw) jobs = jobs.filter(j => j.title.toLowerCase().includes(kw) || j.company.toLowerCase().includes(kw));
+            return jobs;
+        },
+        filteredJobsForAdmin() {
+            let kw = this.jobSearchKeyword.toLowerCase();
+            if (!kw) return this.allJobs;
+            return this.allJobs.filter(j => j.title.toLowerCase().includes(kw) || j.company.toLowerCase().includes(kw));
+        },
+        myApps() {
+            if(!this.currentPhone) return [];
+            const apps = JSON.parse(localStorage.getItem(STORAGE_APPLICATIONS) || '[]');
+            return apps.filter(a => a.phone === this.currentPhone);
+        },
+        myConsultMsgs() {
+            if(!this.currentPhone) return [];
+            const msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS) || '[]');
+            return msgs.filter(m => m.userPhone === this.currentPhone);
+        },
+        allConsultMsgs() {
+            return JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS) || '[]');
+        },
+        allUsers() {
+            return JSON.parse(localStorage.getItem(STORAGE_USERS) || '[]');
+        },
+        adminList() {
+            return JSON.parse(localStorage.getItem(STORAGE_ADMIN) || '[]');
+        },
+        myOwnJobs() {
+            if(!this.adminLogged || this.adminRole !== 'normal') return [];
+            return this.allJobs.filter(j => j.creator === this.adminLoginUser);
+        },
+        profilePercent() {
+            let fields = ['name','phone','email','education','school','workExp'];
+            let filled = fields.filter(f => this.resume[f] && this.resume[f].trim()).length;
+            return Math.floor((filled/fields.length)*100);
+        }
+    },
+    async mounted() {
+        this.isLoading = true;
+        await initData();
+        this.isLoading = false;
+        this.checkLocalLogin();
+        startAutoSync();
+        this.initPullToRefresh();
+    },
+    methods: {
+        formatDate,
+        toggleSection(s) { this.sections[s] = !this.sections[s]; },
+        viewDetail(job) { this.detailJob = job; this.currentView = 'detail'; },
+        goBack() { this.currentView = 'home'; this.detailJob = null; },
+        checkLocalLogin() {
+            const saved = localStorage.getItem(STORAGE_CUR_USER);
+            if (saved) {
+                this.currentPhone = saved;
+                this.userInfo = { phone: saved };
+                this.isLogin = true;
+                this.loadResumeFromStorage();
+            } else {
+                this.isLogin = false;
+            }
+        },
+        loadResumeFromStorage() {
+            const users = JSON.parse(localStorage.getItem(STORAGE_USERS) || '[]');
+            const u = users.find(x => x.phone === this.currentPhone);
+            if (u && u.resumeData) this.resume = { ...this.resume, ...u.resumeData };
+            if (u && u.resumeFile) {
+                this.resumeFileBase64 = u.resumeFile;
+                this.resumeFileName = u.resumeFileName;
+            }
+        },
+        async saveResume() {
+            await syncAndModify(async () => {
+                if (!this.currentPhone) return;
+                let users = JSON.parse(localStorage.getItem(STORAGE_USERS) || '[]');
+                const idx = users.findIndex(x => x.phone === this.currentPhone);
+                if (idx !== -1) {
+                    users[idx].resumeData = JSON.parse(JSON.stringify(this.resume));
+                    localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
+                    showToast('简历已保存');
                 }
-                showToast('已加载最新数据', 1500);
-            }
-        } catch (err) {
-            console.error('[Cloud] 拉取失败', err);
-            showToast('同步失败，请检查网络', 2000);
-        }
-    }
-
-    async function pushToCloud() {
-        try {
-            const allData = {
-                users: JSON.parse(localStorage.getItem(STORAGE_USERS) || '[]'),
-                jobs: JSON.parse(localStorage.getItem(STORAGE_JOBS) || '[]'),
-                applications: JSON.parse(localStorage.getItem(STORAGE_APPLICATIONS) || '[]'),
-                consultMsgs: JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS) || '[]'),
-                adminAccounts: JSON.parse(localStorage.getItem(STORAGE_ADMIN) || '[]')
-            };
-            const res = await fetch(JSONBIN_URL, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json', 'X-Master-Key': JSONBIN_API_KEY },
-                body: JSON.stringify(allData)
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            console.log('[Cloud] 推送成功');
-        } catch (err) {
-            console.error('[Cloud] 推送失败', err);
-            showToast('保存失败，请稍后重试', 2000);
-        }
-    }
-
-    async function syncAndModify(modifyFn) {
-        await pullFromCloud();
-        await modifyFn();
-        await pushToCloud();
-        if (window.vm) window.vm.$forceUpdate();
-    }
-
-    function clearAllBusinessData() {
-        [STORAGE_USERS, STORAGE_JOBS, STORAGE_APPLICATIONS, STORAGE_CONSULT_MSGS, STORAGE_ADMIN]
-            .forEach(key => localStorage.removeItem(key));
-        console.log('[Cache] 已清除所有业务缓存');
-    }
-
-    async function initData() {
-        const currentPhone = localStorage.getItem(STORAGE_CUR_USER);
-        clearAllBusinessData();
-        if (currentPhone) localStorage.setItem(STORAGE_CUR_USER, currentPhone);
-        await pullFromCloud();
-        if (!localStorage.getItem(STORAGE_JOBS) || JSON.parse(localStorage.getItem(STORAGE_JOBS)).length === 0) {
-            localStorage.setItem(STORAGE_JOBS, JSON.stringify(ensureJobFields([])));
-            if (!localStorage.getItem(STORAGE_USERS)) localStorage.setItem(STORAGE_USERS, JSON.stringify([]));
-            if (!localStorage.getItem(STORAGE_APPLICATIONS)) localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify([]));
-            if (!localStorage.getItem(STORAGE_CONSULT_MSGS)) localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify([]));
-            if (!localStorage.getItem(STORAGE_ADMIN)) {
-                localStorage.setItem(STORAGE_ADMIN, JSON.stringify([{ username:'syadmin', password: btoa('syadmin995320'), role:'super' }]));
-            }
-            await pushToCloud();
-        }
-    }
-
-    let syncInterval = null;
-    function startAutoSync() {
-        if (syncInterval) clearInterval(syncInterval);
-        syncInterval = setInterval(() => pullFromCloud(), SYNC_INTERVAL_MS);
-    }
-
-    const vm = new Vue({
-        el: '#app',
-        data: {
-            currentView: 'home',
-            jobKeyword: '',
-            selectedCategory: 'all',
-            isLogin: false,
-            currentPhone: null,
-            userInfo: { phone: '' },
-            resume: { name:'', gender:'男', birth:'', phone:'', email:'', education:'', school:'', workExp:'', skills:'', intention:'' },
-            resumeFileBase64: null,
-            resumeFileName: '',
-            showRegister: false,
-            loginPhone: '',
-            loginPassword: '',
-            regPhone: '',
-            regPassword: '',
-            regConfirmPwd: '',
-            regSecurityCode: '',
-            showChangePwd: false,
-            changePwd: { oldPwd: '', newPwd: '', confirmPwd: '', securityCode: '' },
-            showAdminDialog: false,
-            adminLogged: false,
-            adminRole: null,
-            adminLoginUser: '',
-            adminLoginPwd: '',
-            newAdminName: '',
-            newAdminPwd: '',
-            newJob: { title:'', company:'', location:'', salary:'', tag:'出国外派', description:'', duration:'' },
-            replyConsult: {},
-            consultModal: { visible: false, job: null, content: '' },
-            detailJob: null,
-            sections: {
-                adminManage: false, hotRank: false, jobManage: false,
-                userArchives: false, consultMsgs: false, jobManageNormal: false
-            },
-            jobSearchKeyword: '',
-            pullState: 'idle',
-            pullDistance: 0,
-            startY: 0,
-            pullLock: false,
-        },
-        computed: {
-            allJobsSortedByHeat() {
-                return [...this.allJobs].sort((a,b) => (b.heat || 0) - (a.heat || 0));
-            },
-            top3HotJobs() {
-                return this.allJobsSortedByHeat.slice(0,3);
-            },
-            hotRankJobs() {
-                return this.allJobsSortedByHeat.slice(0,20);
-            },
-            hotJobs() {
-                let jobs = [...this.allJobs];
-                jobs.sort((a,b) => { if (a.sticky !== b.sticky) return b.sticky - a.sticky; return (b.heat || 0) - (a.heat || 0); });
-                return jobs.slice(0,20);
-            },
-            allJobs() {
-                return ensureJobFields(JSON.parse(localStorage.getItem(STORAGE_JOBS) || '[]'));
-            },
-            filteredJobsByCategory() {
-                let kw = this.jobKeyword.toLowerCase();
-                let jobs = this.allJobs;
-                if (this.selectedCategory !== 'all') jobs = jobs.filter(j => j.tag === this.selectedCategory);
-                if (kw) jobs = jobs.filter(j => j.title.toLowerCase().includes(kw) || j.company.toLowerCase().includes(kw));
-                return jobs;
-            },
-            filteredJobsForAdmin() {
-                let kw = this.jobSearchKeyword.toLowerCase();
-                if (!kw) return this.allJobs;
-                return this.allJobs.filter(j => j.title.toLowerCase().includes(kw) || j.company.toLowerCase().includes(kw));
-            },
-            myApps() {
-                if(!this.currentPhone) return [];
-                return JSON.parse(localStorage.getItem(STORAGE_APPLICATIONS)).filter(a => a.phone === this.currentPhone);
-            },
-            myConsultMsgs() {
-                if(!this.currentPhone) return [];
-                return JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS)).filter(m => m.userPhone === this.currentPhone);
-            },
-            allConsultMsgs() {
-                if(this.adminRole !== 'super') return [];
-                return JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS) || '[]');
-            },
-            allUsers() {
-                if(this.adminRole !== 'super') return [];
-                return JSON.parse(localStorage.getItem(STORAGE_USERS) || '[]');
-            },
-            adminList() { return JSON.parse(localStorage.getItem(STORAGE_ADMIN)); },
-            myOwnJobs() {
-                if(!this.adminLogged || this.adminRole !== 'normal') return [];
-                return this.allJobs.filter(j => j.creator === this.adminLoginUser);
-            },
-            profilePercent() {
-                let fields = ['name','phone','email','education','school','workExp'];
-                let filled = fields.filter(f => this.resume[f] && this.resume[f].trim()).length;
-                return Math.floor((filled/fields.length)*100);
-            }
-        },
-        async mounted() {
-            this.consultModal.visible = false;
-            this.showAdminDialog = false;
-            await initData();
-            this.checkLocalLogin();
-            startAutoSync();
-            this.initPullToRefresh();
-            document.addEventListener('visibilitychange', () => {
-                if (!document.hidden && this.showAdminDialog) this.closeAdminDialog();
             });
         },
-        methods: {
-            formatDate,
-            toggleSection(section) { this.sections[section] = !this.sections[section]; },
-            viewDetail(job) { this.detailJob = job; this.currentView = 'detail'; },
-            goBack() { this.currentView = 'home'; this.detailJob = null; },
-            checkLocalLogin() {
-                let saved = localStorage.getItem(STORAGE_CUR_USER);
-                if(saved){
-                    this.currentPhone = saved;
-                    this.userInfo = { phone: saved };
-                    this.isLogin = true;
-                    this.loadResumeFromStorage();
-                } else this.isLogin = false;
-            },
-            loadResumeFromStorage(){
-                let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
-                let u = users.find(x=>x.phone === this.currentPhone);
-                if(u && u.resumeData) this.resume = { ...this.resume, ...u.resumeData };
-                if(u && u.resumeFile) { this.resumeFileBase64 = u.resumeFile; this.resumeFileName = u.resumeFileName; }
-            },
-            async saveResume() {
+        async uploadAttach() {
+            let file = document.querySelector('#fileUpload').files[0];
+            if(!file) return showToast('请选择文件');
+            if(file.size > 10*1024*1024) return showToast('文件过大');
+            let reader = new FileReader();
+            reader.onload = async (e) => {
+                this.resumeFileBase64 = e.target.result;
+                this.resumeFileName = file.name;
                 await syncAndModify(async () => {
-                    if(!this.currentPhone) return;
-                    let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
+                    let users = JSON.parse(localStorage.getItem(STORAGE_USERS) || '[]');
                     let idx = users.findIndex(x=>x.phone === this.currentPhone);
                     if(idx !== -1){
-                        users[idx].resumeData = JSON.parse(JSON.stringify(this.resume));
+                        users[idx].resumeFile = this.resumeFileBase64;
+                        users[idx].resumeFileName = file.name;
                         localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
-                        showToast('简历已保存');
+                        showToast('附件上传成功');
                     }
                 });
-            },
-            uploadAttach(){
-                let file = document.querySelector('#fileUpload').files[0];
-                if(!file) return showToast('请选择文件');
-                if(file.size > 10*1024*1024) return showToast('文件过大');
-                let reader = new FileReader();
-                reader.onload = async (e) => {
-                    this.resumeFileBase64 = e.target.result;
-                    this.resumeFileName = file.name;
-                    await syncAndModify(async () => {
-                        let users = JSON.parse(localStorage.getItem(STORAGE_USERS));
-                        let idx = users.findIndex(x=>x.phone === this.currentPhone);
-                        if(idx !== -1){
-                            users[idx].resumeFile = this.resumeFileBase64;
-                            users[idx].resumeFileName = file.name;
-                            localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
-                            showToast('附件上传成功');
-                        }
-                    });
-                };
-                reader.readAsDataURL(file);
-            },
-            downloadAttach(){
-                if(this.resumeFileBase64){
-                    let a = document.createElement('a');
-                    a.href = this.resumeFileBase64;
-                    a.download = this.resumeFileName;
-                    a.click();
-                } else showToast('无附件');
-            },
-            async doRegister() { /* 保持原有逻辑不变 */ },
-            async doLogin() { /* 保持原有逻辑不变 */ },
-            async doChangePwd() { /* 保持原有逻辑不变 */ },
-            logout(){ /* 保持原有逻辑不变 */ },
-            async applyJob(job){ /* 保持原有逻辑不变 */ },
-            async updateJobHeatSticky(job){ /* 保持原有逻辑不变 */ },
-            openConsult(job){ /* 保持原有逻辑不变 */ },
-            async submitConsult(){ /* 保持原有逻辑不变 */ },
-            adminLogin(){ /* 保持原有逻辑不变 */ },
-            closeAdminDialog(){ /* 保持原有逻辑不变 */ },
-            adminLogoutAndClose(){ /* 保持原有逻辑不变 */ },
-            async addAdmin(){ /* 保持原有逻辑不变 */ },
-            async deleteAdmin(username){ /* 保持原有逻辑不变 */ },
-            async publishJob(){ /* 保持原有逻辑不变 */ },
-            async deleteJob(jobId){ /* 保持原有逻辑不变 */ },
-            async deleteUser(phone){ /* 保持原有逻辑不变 */ },
-            async replyConsultMsg(msgId){ /* 保持原有逻辑不变 */ },
-            async deleteConsultMsg(msgId){ /* 保持原有逻辑不变 */ },
-            quickTip(msg){ showToast(msg); },
-            manualSyncNow() { 
-                if (this.pullLock) return;
+            };
+            reader.readAsDataURL(file);
+        },
+        downloadAttach() {
+            if(this.resumeFileBase64){
+                let a = document.createElement('a');
+                a.href = this.resumeFileBase64;
+                a.download = this.resumeFileName;
+                a.click();
+            } else showToast('无附件');
+        },
+        async doRegister() {
+            const phoneRegex = /^1[3-9]\d{9}$/;
+            if (!phoneRegex.test(this.regPhone)) return showToast('请输入正确的手机号');
+            if (!this.regPassword || this.regPassword.length < 4) return showToast('密码长度至少4位');
+            if (this.regPassword !== this.regConfirmPwd) return showToast('两次密码不一致');
+            if (!/^\d{6}$/.test(this.regSecurityCode)) return showToast('安全码必须为6位数字');
+            await syncAndModify(async () => {
+                let users = JSON.parse(localStorage.getItem(STORAGE_USERS) || '[]');
+                if (users.find(u => u.phone === this.regPhone)) {
+                    showToast('手机号已注册');
+                    return;
+                }
+                users.push({
+                    phone: this.regPhone,
+                    password: btoa(this.regPassword),
+                    securityCode: this.regSecurityCode,
+                    resumeData: null,
+                    resumeFile: null,
+                    resumeFileName: ''
+                });
+                localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
+                showToast('注册成功，请登录');
+                this.showRegister = false;
+                this.loginPhone = this.regPhone;
+                this.regPhone = this.regPassword = this.regConfirmPwd = this.regSecurityCode = '';
+            });
+        },
+        async doLogin() {
+            const phoneRegex = /^1[3-9]\d{9}$/;
+            if (!phoneRegex.test(this.loginPhone)) return showToast('请输入正确的手机号');
+            if (!this.loginPassword) return showToast('请输入密码');
+            await pullFromCloud();
+            const users = JSON.parse(localStorage.getItem(STORAGE_USERS) || '[]');
+            const user = users.find(u => u.phone === this.loginPhone && atob(u.password) === this.loginPassword);
+            if (user) {
+                localStorage.setItem(STORAGE_CUR_USER, this.loginPhone);
+                this.currentPhone = this.loginPhone;
+                this.userInfo = { phone: this.loginPhone };
+                this.isLogin = true;
+                this.loadResumeFromStorage();
+                showToast('登录成功');
+                this.loginPhone = this.loginPassword = '';
+            } else {
+                showToast('手机号或密码错误');
+            }
+        },
+        logout() {
+            localStorage.removeItem(STORAGE_CUR_USER);
+            this.isLogin = false;
+            this.currentPhone = null;
+            this.userInfo = { phone: '' };
+            showToast('已退出');
+        },
+        async doChangePwd() {
+            if (!this.currentPhone) return;
+            await syncAndModify(async () => {
+                const users = JSON.parse(localStorage.getItem(STORAGE_USERS) || '[]');
+                const idx = users.findIndex(u => u.phone === this.currentPhone);
+                if (idx === -1) return showToast('用户不存在');
+                const user = users[idx];
+                if (atob(user.password) !== this.changePwd.oldPwd) return showToast('原密码错误');
+                if (this.changePwd.newPwd !== this.changePwd.confirmPwd) return showToast('两次密码不一致');
+                if (this.changePwd.newPwd.length < 4) return showToast('新密码长度至少4位');
+                if (user.securityCode !== this.changePwd.securityCode) return showToast('安全码错误');
+                users[idx].password = btoa(this.changePwd.newPwd);
+                localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
+                showToast('密码修改成功，请重新登录');
+                this.logout();
+                this.showChangePwd = false;
+            });
+        },
+        async applyJob(job) {
+            if (!this.isLogin) { showToast('请先登录'); this.currentView = 'profile'; return; }
+            if (!this.resume.name || !this.resume.phone) { showToast('请先完善简历'); this.currentView = 'profile'; return; }
+            await syncAndModify(async () => {
+                const apps = JSON.parse(localStorage.getItem(STORAGE_APPLICATIONS) || '[]');
+                if (apps.some(a => a.phone === this.currentPhone && a.jobId === job.id)) {
+                    showToast('已投递过该职位');
+                    return;
+                }
+                apps.push({
+                    id: Date.now(), phone: this.currentPhone, jobId: job.id,
+                    jobTitle: job.title, company: job.company,
+                    time: new Date().toLocaleString(), status: '已投递'
+                });
+                localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(apps));
+                const jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS) || '[]');
+                const target = jobs.find(j => j.id === job.id);
+                if (target) target.heat = (target.heat || 0) + 1;
+                localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
+                showToast('投递成功');
+            });
+        },
+        // 更新职位所有可编辑字段
+        async updateJobHeatSticky(job) {
+            await syncAndModify(async () => {
+                let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS) || '[]');
+                const idx = jobs.findIndex(j => j.id === job.id);
+                if (idx !== -1) {
+                    jobs[idx].title = job.title;
+                    jobs[idx].company = job.company;
+                    jobs[idx].location = job.location;
+                    jobs[idx].salary = job.salary;
+                    jobs[idx].tag = job.tag;
+                    jobs[idx].description = job.description;
+                    jobs[idx].duration = job.duration;
+                    jobs[idx].heat = job.heat;
+                    jobs[idx].sticky = job.sticky;
+                    jobs[idx].updatedAt = new Date().toISOString();
+                    localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
+                    showToast('职位信息已更新');
+                }
+            });
+        },
+        openConsult(job) {
+            if (!this.isLogin) { showToast('请先登录'); this.currentView = 'profile'; return; }
+            this.consultModal = { visible: true, job, content: '' };
+        },
+        async submitConsult() {
+            if (!this.consultModal.content.trim()) return showToast('请输入内容');
+            await syncAndModify(async () => {
+                const msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS) || '[]');
+                msgs.push({
+                    id: Date.now(),
+                    userPhone: this.currentPhone,
+                    jobId: this.consultModal.job.id,
+                    jobTitle: this.consultModal.job.title,
+                    jobCompany: this.consultModal.job.company,
+                    content: this.consultModal.content,
+                    time: new Date().toLocaleString(),
+                    reply: null
+                });
+                localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs));
+                showToast('咨询已发送');
+                this.consultModal.visible = false;
+            });
+        },
+        adminLogin() {
+            const admins = JSON.parse(localStorage.getItem(STORAGE_ADMIN) || '[]');
+            const found = admins.find(a => a.username === this.adminLoginUser && atob(a.password) === this.adminLoginPwd);
+            if (found) {
+                this.adminLogged = true;
+                this.adminRole = found.role;
+                this.adminLoginPwd = '';
+                showToast(`欢迎，${found.username}`);
+            } else {
+                showToast('账号或密码错误');
+            }
+        },
+        closeAdminDialog() { this.showAdminDialog = false; },
+        adminLogoutAndClose() {
+            this.adminLogged = false;
+            this.adminRole = null;
+            this.showAdminDialog = false;
+        },
+        async addAdmin() {
+            await syncAndModify(async () => {
+                if (!this.newAdminName || !this.newAdminPwd) return showToast('请输入用户名和密码');
+                const admins = JSON.parse(localStorage.getItem(STORAGE_ADMIN) || '[]');
+                if (admins.find(a => a.username === this.newAdminName)) return showToast('用户名已存在');
+                admins.push({ username: this.newAdminName, password: btoa(this.newAdminPwd), role: 'normal' });
+                localStorage.setItem(STORAGE_ADMIN, JSON.stringify(admins));
+                this.newAdminName = this.newAdminPwd = '';
+                showToast('管理员添加成功');
+            });
+        },
+        async deleteAdmin(username) {
+            await syncAndModify(async () => {
+                let admins = JSON.parse(localStorage.getItem(STORAGE_ADMIN) || '[]');
+                admins = admins.filter(a => a.username !== username);
+                localStorage.setItem(STORAGE_ADMIN, JSON.stringify(admins));
+                showToast('已删除');
+            });
+        },
+        async publishJob() {
+            await syncAndModify(async () => {
+                if (!this.newJob.title || !this.newJob.company) return showToast('请填写完整');
+                let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS) || '[]');
+                const creator = this.adminRole === 'super' ? 'syadmin' : this.adminLoginUser;
+                jobs.push({
+                    id: Date.now(),
+                    ...this.newJob,
+                    creator,
+                    heat: 0,
+                    sticky: false,
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString()
+                });
+                localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
+                showToast('职位发布成功');
+                this.newJob = { title:'', company:'', location:'', salary:'', tag:'出国外派', description:'', duration:'' };
+            });
+        },
+        async deleteJob(jobId) {
+            await syncAndModify(async () => {
+                let jobs = JSON.parse(localStorage.getItem(STORAGE_JOBS) || '[]');
+                const job = jobs.find(j => j.id === jobId);
+                if (this.adminRole === 'normal' && job.creator !== this.adminLoginUser) {
+                    showToast('无权限删除他人职位');
+                    return;
+                }
+                jobs = jobs.filter(j => j.id !== jobId);
+                localStorage.setItem(STORAGE_JOBS, JSON.stringify(jobs));
+                showToast('职位已删除');
+            });
+        },
+        async deleteUser(phone) {
+            await syncAndModify(async () => {
+                let users = JSON.parse(localStorage.getItem(STORAGE_USERS) || '[]');
+                users = users.filter(u => u.phone !== phone);
+                localStorage.setItem(STORAGE_USERS, JSON.stringify(users));
+                let apps = JSON.parse(localStorage.getItem(STORAGE_APPLICATIONS) || '[]');
+                apps = apps.filter(a => a.phone !== phone);
+                localStorage.setItem(STORAGE_APPLICATIONS, JSON.stringify(apps));
+                let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS) || '[]');
+                msgs = msgs.filter(m => m.userPhone !== phone);
+                localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs));
+                showToast('已删除求职者账号及相关数据');
+            });
+        },
+        async replyConsultMsg(msgId) {
+            const replyText = this.replyConsult[msgId];
+            if (!replyText) return;
+            await syncAndModify(async () => {
+                let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS) || '[]');
+                const idx = msgs.findIndex(m => m.id == msgId);
+                if (idx !== -1) {
+                    msgs[idx].reply = replyText;
+                    msgs[idx].updatedAt = new Date().toISOString();
+                    localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs));
+                    showToast('回复已保存');
+                    delete this.replyConsult[msgId];
+                }
+            });
+        },
+        async deleteConsultMsg(msgId) {
+            await syncAndModify(async () => {
+                let msgs = JSON.parse(localStorage.getItem(STORAGE_CONSULT_MSGS) || '[]');
+                msgs = msgs.filter(m => m.id !== msgId);
+                localStorage.setItem(STORAGE_CONSULT_MSGS, JSON.stringify(msgs));
+                showToast('已删除咨询消息');
+            });
+        },
+        manualSyncNow() {
+            if (this.pullLock) return;
+            this.pullState = 'refreshing';
+            this.pullDistance = PULL_THRESHOLD;
+            this.pullLock = true;
+            pullFromCloud().then(() => {
+                this.afterRefreshSuccess();
+                showToast('已同步最新数据', 1500);
+            }).catch(() => {
+                this.resetPullState();
+            });
+        },
+        initPullToRefresh() {
+            const container = this.$refs.scrollContainer;
+            if (!container) return;
+            container.addEventListener('touchstart', this.handleTouchStart, { passive: true });
+            container.addEventListener('touchmove', this.handleTouchMove, { passive: false });
+            container.addEventListener('touchend', this.handleTouchEnd);
+        },
+        handleTouchStart(e) {
+            if (this.pullLock || this.pullState === 'refreshing') return;
+            if (this.$refs.scrollContainer.scrollTop <= 0) {
+                this.startY = e.touches[0].clientY;
+                this.pullState = 'idle';
+                this.pullDistance = 0;
+            } else {
+                this.startY = null;
+            }
+        },
+        handleTouchMove(e) {
+            if (this.startY === null || this.pullLock) return;
+            const delta = e.touches[0].clientY - this.startY;
+            if (delta > 0) {
+                e.preventDefault();
+                this.pullDistance = Math.min(delta * 0.5, 150);
+                if (this.pullDistance > 5) this.pullState = 'pulling';
+            }
+        },
+        handleTouchEnd() {
+            if (this.pullLock || this.startY === null) return;
+            if (this.pullDistance >= PULL_THRESHOLD) {
                 this.pullState = 'refreshing';
                 this.pullDistance = PULL_THRESHOLD;
                 this.pullLock = true;
                 pullFromCloud().then(() => {
                     this.afterRefreshSuccess();
+                    showToast('已加载最新数据', 1500);
                 }).catch(() => {
                     this.resetPullState();
                 });
-            },
-            initPullToRefresh() {
-                const container = this.$refs.scrollContainer;
-                if (!container) return;
-                container.addEventListener('touchstart', this.handleTouchStart, { passive: true });
-                container.addEventListener('touchmove', this.handleTouchMove, { passive: false });
-                container.addEventListener('touchend', this.handleTouchEnd, { passive: false });
-            },
-            handleTouchStart(e) {
-                if (this.pullLock || this.pullState === 'refreshing') return;
-                if (this.$refs.scrollContainer.scrollTop <= 0) {
-                    this.startY = e.touches[0].clientY;
-                    this.pullState = 'idle';
-                    this.pullDistance = 0;
-                } else {
-                    this.startY = null;
-                }
-            },
-            handleTouchMove(e) {
-                if (this.startY === null || this.pullLock) return;
-                const currentY = e.touches[0].clientY;
-                const deltaY = currentY - this.startY;
-                if (deltaY > 0) {
-                    e.preventDefault();
-                    this.pullDistance = Math.min(deltaY * 0.5, 150);
-                    if (this.pullDistance > 5) this.pullState = 'pulling';
-                }
-            },
-            handleTouchEnd() {
-                if (this.pullLock || this.startY === null) return;
-                if (this.pullDistance >= PULL_THRESHOLD) {
-                    this.pullState = 'refreshing';
-                    this.pullDistance = PULL_THRESHOLD;
-                    this.pullLock = true;
-                    pullFromCloud().then(() => {
-                        this.afterRefreshSuccess();
-                    }).catch(() => {
-                        this.resetPullState();
-                    });
-                } else {
-                    this.resetPullState();
-                }
-                this.startY = null;
-            },
-            afterRefreshSuccess() {
-                // 刷新成功后：重置状态，回到首页，并滚动到顶部
+            } else {
                 this.resetPullState();
-                this.currentView = 'home';
-                this.$nextTick(() => {
-                    if (this.$refs.scrollContainer) {
-                        this.$refs.scrollContainer.scrollTop = 0;
-                    }
-                });
-            },
-            resetPullState() {
-                this.pullState = 'idle';
-                this.pullDistance = 0;
-                this.pullLock = false;
-                this.startY = null;
             }
+            this.startY = null;
+        },
+        afterRefreshSuccess() {
+            this.resetPullState();
+            this.currentView = 'home';
+            this.$nextTick(() => { if (this.$refs.scrollContainer) this.$refs.scrollContainer.scrollTop = 0; });
+        },
+        resetPullState() {
+            this.pullState = 'idle';
+            this.pullDistance = 0;
+            this.pullLock = false;
         }
-    });
-    window.vm = vm;
-    window.fullSync = pullFromCloud;
+    }
+});
+window.vm = vm;
 </script>
 </body>
 </html>
